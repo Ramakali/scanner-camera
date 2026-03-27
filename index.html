@@ -115,10 +115,23 @@ function processFrame() {
 
   try {
 
+    // 🔒 1. GARANTE QUE O VIDEO ESTÁ PRONTO
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      requestAnimationFrame(processFrame);
+      return;
+    }
+
+    // 🔒 2. AJUSTA CANVAS
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // 🔒 3. DESENHA FRAME
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    // 🔒 4. LÊ COM OPENCV
     let src = cv.imread(canvas);
 
+    // ===== DETECÇÃO =====
     let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
     let corners = new cv.MatVector();
     let ids = new cv.Mat();
@@ -126,23 +139,36 @@ function processFrame() {
     cv.detectMarkers(src, dictionary, corners, ids);
 
     if (ids.rows > 0) {
+
       cv.drawDetectedMarkers(src, corners, ids);
-      status.innerText = "ArUco detectado: " + ids.data32S.join(",");
+
+      let arr = [];
+      for (let i = 0; i < ids.rows; i++) {
+        arr.push(ids.data32S[i]);
+      }
+
+      status.innerText = "ArUco: " + arr.join(",");
+
     } else {
       status.innerText = "Nenhum ArUco";
     }
 
-    cv.imshow(canvas, src);
+    // 🔒 5. MOSTRA RESULTADO (IMPORTANTE!)
+    cv.imshow('canvas', src);
 
+    // 🔒 6. LIMPEZA
     src.delete();
     corners.delete();
     ids.delete();
 
   } catch (err) {
-    console.error("Erro no loop:", err);
-    status.innerText = "Erro: " + err.message;
+
+    console.error(err);
+    status.innerText = "Erro: " + err;
+
   }
 
+  // 🔁 LOOP CONTÍNUO
   requestAnimationFrame(processFrame);
 }
 
