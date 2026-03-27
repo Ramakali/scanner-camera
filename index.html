@@ -1,268 +1,130 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco Detector para iPad</title>
-    <script src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/aruco.js"></script>
+    <title>ArUco Funcional</title>
+    <!-- Referência LOCAL (não depende de internet) -->
+    <script src="aruco.js"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            background: #f5f5f5;
-            margin: 0;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        video, canvas {
-            border: 2px solid #333;
-            margin: 10px;
-            max-width: 100%;
-            border-radius: 8px;
-            background: #000;
-        }
-        
-        #status {
-            font-size: 16px;
-            margin: 10px;
-            padding: 12px;
-            background: #e3f2fd;
-            border-radius: 8px;
-            display: inline-block;
-            font-weight: 500;
-        }
-        
-        button {
-            background: #007aff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 8px;
-            margin: 10px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        
-        button:hover {
-            background: #0051d5;
-        }
-        
-        button:active {
-            transform: scale(0.98);
-        }
-        
-        .info {
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px;
-            text-align: left;
-        }
-        
-        @media (max-width: 768px) {
-            video, canvas {
-                width: 100%;
-                height: auto;
-            }
-        }
+        body { font-family: Arial; padding: 20px; text-align: center; }
+        video, canvas { border: 2px solid #333; margin: 10px; max-width: 90%; }
+        button { padding: 12px 24px; font-size: 16px; margin: 10px; cursor: pointer; background: #007aff; color: white; border: none; border-radius: 8px; }
+        #status { margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 8px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🎯 Detector ArUco para iPad</h2>
-        <p>Mostre seu marcador ArUco para a câmera</p>
-        
-        <button id="startBtn">📷 Ativar Câmera</button>
-        
-        <div>
-            <h3>📷 Visualização</h3>
-            <video id="video" width="640" height="480" autoplay playsinline muted></video>
-        </div>
-        
-        <div>
-            <h3>🔍 Detecção ao Vivo</h3>
-            <canvas id="canvas" width="640" height="480"></canvas>
-        </div>
-        
-        <div id="status">⚠️ Clique no botão acima para ativar a câmera</div>
-        
-        <div class="info">
-            <strong>💡 Dicas para iPad:</strong>
-            <ul>
-                <li>Certifique-se de que o iPad está com a câmera desobstruída</li>
-                <li>O Safari no iPad exige que o usuário clique em um botão para ativar a câmera</li>
-                <li>Verifique se não há outros aplicativos usando a câmera</li>
-                <li>Se não funcionar, tente recarregar a página e autorizar novamente</li>
-            </ul>
-        </div>
+    <h2>🎯 Detector ArUco</h2>
+    <button id="btnCamera">📷 Ativar Câmera</button>
+    
+    <div>
+        <video id="video" width="640" height="480" autoplay playsinline muted style="display: none;"></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
     </div>
+    
+    <div id="status">⚠️ Clique em "Ativar Câmera" e aponte para o marcador</div>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const statusDiv = document.getElementById('status');
-        const startBtn = document.getElementById('startBtn');
+        const btnCamera = document.getElementById('btnCamera');
         
         let detector = null;
         let animationId = null;
-        let isRunning = false;
+        let cameraActive = false;
         
-        // Inicializa o detector
-        try {
-            detector = new AR.Detector();
-            console.log('Detector ArUco inicializado');
-        } catch (error) {
-            console.error('Erro ao inicializar detector:', error);
-            statusDiv.innerHTML = '❌ Erro ao carregar biblioteca ArUco';
+        // VERIFICA SE A BIBLIOTECA CARREGOU
+        if (typeof AR === 'undefined') {
+            statusDiv.innerHTML = '❌ ERRO: Biblioteca aruco.js não carregou. Verifique se o arquivo está na mesma pasta.';
             statusDiv.style.background = '#f8d7da';
+        } else {
+            statusDiv.innerHTML = '✅ Biblioteca carregada! Clique em "Ativar Câmera".';
+            // Cria o detector ANTES de ativar a câmera
+            detector = new AR.Detector();
+            console.log('Detector criado com sucesso');
         }
         
-        // Função para processar os frames
-        function detectMarkers() {
-            if (!isRunning || !video.videoWidth || !video.videoHeight) {
-                if (isRunning) {
-                    animationId = requestAnimationFrame(detectMarkers);
-                }
+        // Processa cada frame
+        function processFrame() {
+            if (!cameraActive || !video.videoWidth) {
+                if (cameraActive) animationId = requestAnimationFrame(processFrame);
                 return;
             }
             
+            // Desenha o vídeo no canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
             try {
-                // Desenha o frame do vídeo no canvas
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
                 // Pega os dados da imagem
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
-                // Detecta marcadores
+                // TENTA DETECTAR
                 const markers = detector.detect(imageData);
                 
-                // Atualiza interface baseado nos resultados
                 if (markers && markers.length > 0) {
-                    const ids = markers.map(m => m.id).join(', ');
-                    statusDiv.innerHTML = `✅ Detectado(s): ${markers.length} marcador(es)<br>IDs: ${ids}`;
+                    statusDiv.innerHTML = `✅ Detectado! ID: ${markers[0].id}`;
                     statusDiv.style.background = '#d4edda';
                     
-                    // Desenha contorno ao redor de cada marcador
-                    markers.forEach(marker => {
-                        ctx.strokeStyle = '#ff3b30';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(marker.corners[0].x, marker.corners[0].y);
-                        for (let i = 1; i < marker.corners.length; i++) {
-                            ctx.lineTo(marker.corners[i].x, marker.corners[i].y);
-                        }
-                        ctx.closePath();
-                        ctx.stroke();
-                        
-                        // Desenha o ID
-                        ctx.fillStyle = '#ff3b30';
-                        ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont';
-                        ctx.shadowBlur = 0;
-                        ctx.fillText(`ID: ${marker.id}`, marker.corners[0].x, marker.corners[0].y - 10);
-                    });
+                    // Desenha contorno vermelho
+                    const corners = markers[0].corners;
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(corners[0].x, corners[0].y);
+                    for (let i = 1; i < corners.length; i++) {
+                        ctx.lineTo(corners[i].x, corners[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    
+                    // Escreve o ID
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 20px Arial';
+                    ctx.fillText(`ID: ${markers[0].id}`, corners[0].x, corners[0].y - 10);
                 } else {
-                    statusDiv.innerHTML = '🔍 Procurando marcadores... Aponte a câmera para um marcador ArUco';
+                    statusDiv.innerHTML = '🔍 Procurando marcador... Aponte a câmera para o marcador ArUco';
                     statusDiv.style.background = '#e3f2fd';
                 }
-            } catch (error) {
-                console.error('Erro na detecção:', error);
+            } catch (e) {
+                console.error('Erro na detecção:', e);
             }
             
-            // Continua o loop
-            animationId = requestAnimationFrame(detectMarkers);
+            animationId = requestAnimationFrame(processFrame);
         }
         
-        // Função para parar a câmera
-        function stopCamera() {
-            if (video.srcObject) {
-                const tracks = video.srcObject.getTracks();
-                tracks.forEach(track => track.stop());
-                video.srcObject = null;
-            }
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
-            isRunning = false;
-        }
-        
-        // Função para iniciar a câmera
+        // Ativa a câmera
         async function startCamera() {
-            // Para qualquer stream existente
-            stopCamera();
-            
             statusDiv.innerHTML = '⏳ Solicitando permissão da câmera...';
-            statusDiv.style.background = '#fff3cd';
             
             try {
-                // Configurações otimizadas para iPad
-                const constraints = {
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        facingMode: { ideal: "environment" } // Câmera traseira
-                    }
-                };
-                
-                console.log('Solicitando acesso à câmera no iPad...');
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                });
                 
                 video.srcObject = stream;
+                video.style.display = "block";
                 
-                // Aguarda o vídeo carregar
                 video.onloadedmetadata = () => {
                     video.play();
-                    console.log('Vídeo iniciado');
-                    statusDiv.innerHTML = '📷 Câmera ativada! Iniciando detecção...';
-                    statusDiv.style.background = '#d4edda';
-                    
-                    // Inicia a detecção
-                    isRunning = true;
-                    detectMarkers();
+                    cameraActive = true;
+                    statusDiv.innerHTML = '📷 Câmera ativa! Processando...';
+                    processFrame();
                 };
-                
-            } catch (error) {
-                console.error('Erro ao acessar câmera:', error);
-                
-                let errorMessage = '';
-                if (error.name === 'NotAllowedError') {
-                    errorMessage = 'Permissão negada. Por favor, autorize o acesso à câmera nas configurações do iPad.';
-                } else if (error.name === 'NotFoundError') {
-                    errorMessage = 'Nenhuma câmera encontrada neste dispositivo.';
-                } else if (error.name === 'NotReadableError') {
-                    errorMessage = 'Câmera está sendo usada por outro aplicativo.';
-                } else {
-                    errorMessage = `Erro: ${error.message || 'Não foi possível acessar a câmera'}`;
-                }
-                
-                statusDiv.innerHTML = `❌ ${errorMessage}<br><br>💡 Dica: No iPad, vá em Configurações > Safari > Câmera e verifique se está permitido.`;
+            } catch (err) {
+                statusDiv.innerHTML = `❌ Erro ao acessar câmera: ${err.message}`;
                 statusDiv.style.background = '#f8d7da';
+                console.error(err);
             }
         }
         
-        // Evento do botão
-        startBtn.addEventListener('click', startCamera);
+        btnCamera.addEventListener('click', startCamera);
         
-        // Detecta se é iPad/iOS
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        
-        if (isIOS) {
-            console.log('Dispositivo iOS detectado');
-            const infoDiv = document.querySelector('.info');
-            if (infoDiv) {
-                infoDiv.style.border = '2px solid #007aff';
-            }
-        }
-        
-        // Limpeza ao sair da página
+        // Para a câmera ao sair da página
         window.addEventListener('beforeunload', () => {
-            stopCamera();
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(t => t.stop());
+            }
+            if (animationId) cancelAnimationFrame(animationId);
         });
     </script>
 </body>
