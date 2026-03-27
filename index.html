@@ -1,528 +1,106 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detector ArUco Pro</title>
+    <title>ArUco Detector - GitHub.io</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/aruco.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
-
-        :root {
-            --bg: #0a0a0f;
-            --surface: #13131a;
-            --border: #2a2a3a;
-            --accent: #00e5ff;
-            --accent2: #ff3d71;
-            --text: #e8e8f0;
-            --muted: #6b6b80;
-            --success: #00e096;
-            --card: #16161f;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 24px 16px;
-            gap: 20px;
-        }
-
-        header {
-            text-align: center;
-        }
-
-        header h1 {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: clamp(1.2rem, 4vw, 1.8rem);
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            color: var(--accent);
-            text-shadow: 0 0 20px rgba(0,229,255,0.4);
-        }
-
-        header p {
-            font-size: 0.8rem;
-            color: var(--muted);
-            margin-top: 4px;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        #scanner-wrap {
-            position: relative;
-            width: 100%;
-            max-width: 520px;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            border: 1px solid var(--border);
-            box-shadow: 0 0 40px rgba(0,229,255,0.07);
-        }
-
-        video {
-            width: 100%;
-            display: block;
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-        }
-
-        /* Corner brackets */
-        .corner {
-            position: absolute;
-            width: 28px;
-            height: 28px;
-            border-color: var(--accent);
-            border-style: solid;
-            opacity: 0.7;
-        }
-        .corner.tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
-        .corner.tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
-        .corner.bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
-        .corner.br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
-
-        #scan-line {
-            position: absolute;
-            left: 0; right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-            box-shadow: 0 0 8px var(--accent);
-            animation: scan 2.5s ease-in-out infinite;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        #scan-line.active { opacity: 1; }
-        @keyframes scan {
-            0%   { top: 10%; }
-            50%  { top: 90%; }
-            100% { top: 10%; }
-        }
-
-        canvas#markerCanvas {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100%;
-            max-width: 520px;
-        }
-
-        button {
-            flex: 1;
-            min-width: 120px;
-            padding: 13px 20px;
-            font-size: 0.9rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--surface);
-            color: var(--text);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        button:hover:not(:disabled) {
-            background: var(--card);
-            border-color: var(--accent);
-            color: var(--accent);
-            box-shadow: 0 0 15px rgba(0,229,255,0.15);
-        }
-
-        button:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-
-        button#captureBtn {
-            background: var(--accent);
-            color: #000;
-            border-color: var(--accent);
-            font-weight: 700;
-        }
-        button#captureBtn:hover:not(:disabled) {
-            background: #33ecff;
-            box-shadow: 0 0 25px rgba(0,229,255,0.4);
-            color: #000;
-        }
-
-        #status-card {
-            width: 100%;
-            max-width: 520px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px 18px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-        }
-
-        #status-card .label {
-            font-size: 0.65rem;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            margin-bottom: 6px;
-        }
-
-        #status-text {
-            color: var(--muted);
-            transition: color 0.3s;
-        }
-        #status-text.ok    { color: var(--success); }
-        #status-text.error { color: var(--accent2); }
-        #status-text.info  { color: var(--accent); }
-
-        #results {
-            width: 100%;
-            max-width: 520px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .marker-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--success);
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.82rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            animation: fadein 0.3s ease;
-        }
-        @keyframes fadein { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
-
-        .marker-card .mid {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--success);
-        }
-
-        .marker-card .minfo {
-            color: var(--muted);
-            font-size: 0.72rem;
-        }
-
-        #no-markers {
-            text-align: center;
-            color: var(--muted);
-            font-size: 0.8rem;
-            font-family: 'JetBrains Mono', monospace;
-            padding: 10px;
-            display: none;
-        }
-
-        select {
-            padding: 10px 14px;
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.82rem;
-            cursor: pointer;
-            width: 100%;
-            max-width: 520px;
-        }
-        select:focus { outline: none; border-color: var(--accent); }
+        canvas { border: 1px solid #ccc; max-width: 100%; }
+        #status { font-family: monospace; margin-top: 10px; }
     </style>
 </head>
 <body>
+    <h3>Detector ArUco - Funciona no GitHub.io!</h3>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <div id="status">Carregando imagem...</div>
 
-<header>
-    <h1>▣ DETECTOR ARUCO</h1>
-    <p>js-aruco2 · detecção nativa no browser</p>
-</header>
-
-<div id="scanner-wrap">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="markerCanvas"></canvas>
-    <div id="overlay">
-        <div class="corner tl"></div>
-        <div class="corner tr"></div>
-        <div class="corner bl"></div>
-        <div class="corner br"></div>
-        <div id="scan-line"></div>
-    </div>
-</div>
-
-<select id="dictSelect">
-    <option value="ARUCO_MIP_36h12">ARUCO_MIP_36h12 (recomendado)</option>
-    <option value="ARUCO">ARUCO (5x5)</option>
-    <option value="ARUCO_4X4_1000">ARUCO 4X4</option>
-    <option value="ARUCO_5X5_1000">ARUCO 5X5</option>
-    <option value="ARUCO_6X6_1000">ARUCO 6X6</option>
-    <option value="ARUCO_7X7_1000">ARUCO 7X7</option>
-</select>
-
-<div class="controls">
-    <button id="switchBtn">⇄ Câmera</button>
-    <button id="captureBtn" disabled>◉ Capturar</button>
-    <button id="continuousBtn">▶ Contínuo</button>
-</div>
-
-<div id="status-card">
-    <div class="label">STATUS</div>
-    <div id="status-text">Carregando biblioteca ArUco...</div>
-</div>
-
-<div id="results"></div>
-<div id="no-markers">Nenhum marcador encontrado.</div>
-
-<!-- js-aruco2: biblioteca JavaScript pura para detecção ArUco -->
-<script src="https://cdn.jsdelivr.net/npm/js-aruco2@1.0.1/src/aruco.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/js-aruco2@1.0.1/src/svd.js"></script>
-
-<script>
-(function() {
-    const video       = document.getElementById('video');
-    const markerCanvas= document.getElementById('markerCanvas');
-    const captureBtn  = document.getElementById('captureBtn');
-    const continuousBtn = document.getElementById('continuousBtn');
-    const switchBtn   = document.getElementById('switchBtn');
-    const dictSelect  = document.getElementById('dictSelect');
-    const statusEl    = document.getElementById('status-text');
-    const resultsEl   = document.getElementById('results');
-    const noMarkersEl = document.getElementById('no-markers');
-    const scanLine    = document.getElementById('scan-line');
-
-    let useFront = false;
-    let currentStream = null;
-    let continuousMode = false;
-    let animFrame = null;
-    let detector = null;
-
-    // ─── Status helpers ───────────────────────────────────────────────
-    function setStatus(msg, type = '') {
-        statusEl.textContent = msg;
-        statusEl.className = type;
-    }
-
-    // ─── Detector init ───────────────────────────────────────────────
-    function initDetector() {
-        try {
-            // js-aruco2 expõe AR global
-            if (typeof AR === 'undefined') {
-                setStatus('Biblioteca js-aruco2 não carregou. Verifique sua conexão.', 'error');
-                return false;
+    <script>
+        // Aguarda o carregamento completo da página
+        window.onload = function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const statusDiv = document.getElementById('status');
+            
+            // Cria o detector usando o dicionário ARUCO_MIP_36h12 (padrão)
+            const detector = new AR.Detector();
+            
+            // Cria uma imagem de exemplo com um marcador simulado
+            // (substitua pelo caminho da sua imagem real)
+            const img = new Image();
+            
+            // Se você não tem uma imagem com marcador, pode desenhar um exemplo
+            // Este é um fallback - use sua própria imagem real
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                statusDiv.textContent = 'Processando imagem...';
+                
+                // Obtém os dados da imagem e detecta
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const markers = detector.detect(imageData);
+                
+                if (markers.length > 0) {
+                    statusDiv.innerHTML = `✅ Encontrados ${markers.length} marcador(es):<br>`;
+                    markers.forEach(marker => {
+                        statusDiv.innerHTML += `ID: ${marker.id}<br>`;
+                        
+                        // Desenha um contorno vermelho ao redor do marcador detectado
+                        ctx.strokeStyle = 'red';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(marker.corners[0].x, marker.corners[0].y);
+                        for (let i = 1; i < marker.corners.length; i++) {
+                            ctx.lineTo(marker.corners[i].x, marker.corners[i].y);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                        
+                        // Escreve o ID próximo ao marcador
+                        ctx.fillStyle = 'red';
+                        ctx.font = 'bold 20px Arial';
+                        ctx.fillText(`ID: ${marker.id}`, marker.corners[0].x, marker.corners[0].y - 10);
+                    });
+                } else {
+                    statusDiv.innerHTML = '⚠️ Nenhum marcador encontrado nesta imagem.';
+                }
+            };
+            
+            // Para testar sem uma imagem real, você pode criar um marcador de exemplo:
+            // Mas o ideal é usar uma imagem real com marcador ArUco impresso/fotografado
+            
+            // CARREGUE SUA PRÓPRIA IMAGEM AQUI:
+            // img.src = 'sua-imagem-com-marcador.jpg';
+            
+            // Exemplo: desenha um marcador simulado para demonstrar a detecção
+            // (na prática, use uma foto real com marcadores)
+            function drawSimulatedMarker() {
+                // Desenha um quadrado preto com borda e padrão simulando marcador
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'black';
+                ctx.fillRect(100, 100, 120, 120);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(110, 110, 100, 100);
+                ctx.fillStyle = 'black';
+                // Desenha um padrão simples
+                for(let i = 0; i < 3; i++) {
+                    for(let j = 0; j < 3; j++) {
+                        if((i+j) % 2 === 0) {
+                            ctx.fillRect(120 + i*20, 120 + j*20, 15, 15);
+                        }
+                    }
+                }
+                
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const markers = detector.detect(imageData);
+                if(markers.length > 0) {
+                    statusDiv.innerHTML = `✅ Detectado marcador ID ${markers[0].id} (simulado)`;
+                } else {
+                    statusDiv.innerHTML = 'ℹ️ Para testar com marcadores reais, substitua a imagem de exemplo por uma foto de um marcador ArUco.';
+                }
             }
-            const dict = dictSelect.value;
-            detector = new AR.Detector({ dictionaryName: dict });
-            return true;
-        } catch(e) {
-            setStatus('Erro ao iniciar detector: ' + e.message, 'error');
-            console.error(e);
-            return false;
-        }
-    }
-
-    // ─── Câmera ──────────────────────────────────────────────────────
-    async function startCamera() {
-        if (currentStream) {
-            currentStream.getTracks().forEach(t => t.stop());
-        }
-        const constraints = {
-            video: {
-                facingMode: useFront ? 'user' : { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
+            
+            // Por padrão, desenha um exemplo simulado
+            drawSimulatedMarker();
         };
-        try {
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = currentStream;
-            await new Promise(res => video.onloadedmetadata = res);
-            captureBtn.disabled = false;
-            setStatus('Câmera ativa. Pronto para detectar.', 'info');
-        } catch(err) {
-            setStatus('Erro ao acessar câmera: ' + err.message, 'error');
-        }
-    }
-
-    // ─── Detecção ─────────────────────────────────────────────────────
-    const offCanvas = document.createElement('canvas');
-
-    function detect() {
-        if (!detector) {
-            if (!initDetector()) return [];
-        }
-
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        if (!w || !h) return [];
-
-        offCanvas.width  = w;
-        offCanvas.height = h;
-        const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(video, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
-
-        try {
-            return detector.detect(imageData);
-        } catch(e) {
-            console.error('Detecção falhou:', e);
-            return [];
-        }
-    }
-
-    function drawMarkers(markers) {
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        markerCanvas.width  = w;
-        markerCanvas.height = h;
-        const ctx = markerCanvas.getContext('2d');
-        ctx.clearRect(0, 0, w, h);
-
-        // Escala do canvas visual vs resolução do vídeo
-        const scaleX = markerCanvas.offsetWidth  / w;
-        const scaleY = markerCanvas.offsetHeight / h;
-
-        markers.forEach(marker => {
-            const corners = marker.corners;
-
-            ctx.save();
-            ctx.strokeStyle = '#00e096';
-            ctx.lineWidth   = Math.max(2, 3 / scaleX);
-            ctx.shadowColor = '#00e096';
-            ctx.shadowBlur  = 8;
-            ctx.beginPath();
-            ctx.moveTo(corners[0].x, corners[0].y);
-            corners.forEach((c, i) => { if(i > 0) ctx.lineTo(c.x, c.y); });
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-
-            // Label ID
-            const cx = corners.reduce((s,c) => s+c.x, 0) / 4;
-            const cy = corners.reduce((s,c) => s+c.y, 0) / 4;
-            const fontSize = Math.max(16, Math.min(w * 0.06, 48));
-            ctx.save();
-            ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(cx - fontSize*1.1, cy - fontSize*0.7, fontSize*2.2, fontSize*1.4);
-            ctx.fillStyle = '#00e096';
-            ctx.fillText('ID:' + marker.id, cx, cy);
-            ctx.restore();
-
-            // Corner dots
-            corners.forEach(c => {
-                ctx.beginPath();
-                ctx.arc(c.x, c.y, Math.max(4, 5/scaleX), 0, 2*Math.PI);
-                ctx.fillStyle = '#00e5ff';
-                ctx.fill();
-            });
-        });
-    }
-
-    function showResults(markers) {
-        resultsEl.innerHTML = '';
-        noMarkersEl.style.display = 'none';
-
-        if (markers.length === 0) {
-            noMarkersEl.style.display = 'block';
-            setStatus('Nenhum marcador detectado.', '');
-            return;
-        }
-
-        setStatus(`${markers.length} marcador(es) encontrado(s).`, 'ok');
-        markers.forEach(m => {
-            const card = document.createElement('div');
-            card.className = 'marker-card';
-            const cx = Math.round(m.corners.reduce((s,c)=>s+c.x,0)/4);
-            const cy = Math.round(m.corners.reduce((s,c)=>s+c.y,0)/4);
-            card.innerHTML = `
-                <div>
-                    <div class="mid">ID: ${m.id}</div>
-                    <div class="minfo">Centro: (${cx}, ${cy})</div>
-                </div>
-                <div class="minfo">${dictSelect.value}</div>
-            `;
-            resultsEl.appendChild(card);
-        });
-    }
-
-    // ─── Captura única ────────────────────────────────────────────────
-    captureBtn.addEventListener('click', () => {
-        if (!initDetector()) return;
-        const markers = detect();
-        drawMarkers(markers);
-        showResults(markers);
-    });
-
-    // ─── Modo contínuo ────────────────────────────────────────────────
-    continuousBtn.addEventListener('click', () => {
-        continuousMode = !continuousMode;
-        if (continuousMode) {
-            continuousBtn.textContent = '■ Parar';
-            scanLine.classList.add('active');
-            if (!initDetector()) { continuousMode = false; return; }
-            setStatus('Detecção contínua ativa...', 'info');
-
-            function loop() {
-                if (!continuousMode) return;
-                const markers = detect();
-                drawMarkers(markers);
-                if (markers.length > 0) showResults(markers);
-                animFrame = requestAnimationFrame(loop);
-            }
-            loop();
-        } else {
-            continuousBtn.textContent = '▶ Contínuo';
-            scanLine.classList.remove('active');
-            cancelAnimationFrame(animFrame);
-            setStatus('Detecção contínua pausada.', '');
-        }
-    });
-
-    // ─── Trocar câmera ────────────────────────────────────────────────
-    switchBtn.addEventListener('click', () => {
-        useFront = !useFront;
-        startCamera();
-    });
-
-    // ─── Troca de dicionário ──────────────────────────────────────────
-    dictSelect.addEventListener('change', () => {
-        detector = null; // força reinicialização
-        setStatus('Dicionário alterado para ' + dictSelect.value, 'info');
-    });
-
-    // ─── Init ─────────────────────────────────────────────────────────
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            if (typeof AR !== 'undefined') {
-                setStatus('js-aruco2 carregado. Iniciando câmera...', 'info');
-                startCamera();
-            } else {
-                setStatus('ERRO: js-aruco2 não carregou. Verifique a conexão.', 'error');
-            }
-        }, 500);
-    });
-
-})();
-</script>
+    </script>
 </body>
 </html>
