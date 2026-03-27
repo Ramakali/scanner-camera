@@ -1,91 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<style>
-body { text-align: center; font-family: sans-serif; }
-canvas, img { width: 300px; margin-top: 10px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector ArUco Pro</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f0f0; margin: 0; padding: 20px; }
+        #container { position: relative; width: 100%; max-width: 500px; }
+        video, canvas { width: 100%; border-radius: 8px; display: block; }
+        canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+        .controls { margin-top: 15px; display: flex; gap: 10px; }
+        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        #status { margin-top: 10px; font-weight: bold; color: #333; }
+    </style>
 </head>
-
 <body>
 
-<h3>ArUco Detector</h3>
-<div id="status">Carregando...</div>
+    <h2>Detector ArUco (Foto)</h2>
+    
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvasOutput"></canvas>
+    </div>
 
-<input type="file" id="file"><br><br>
-<img id="img">
-<canvas id="canvas"></canvas>
+    <div class="controls">
+        <button id="captureBtn" disabled>Capturar e Detectar</button>
+    </div>
 
-<script src="https://rawcdn.githack.com/opencv/opencv/4.x/platforms/js/opencv.js"></script>
+    <div id="status">Carregando OpenCV.js...</div>
 
-<script>
-const status = document.getElementById("status");
-const img = document.getElementById("img");
+    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
 
-let dictionary, parameters, corners, ids;
-let ready = false;
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvasOutput');
+        const captureBtn = document.getElementById('captureBtn');
+        const status = document.getElementById('status');
 
-// 🔒 espera real do OpenCV
-cv['onRuntimeInitialized'] = () => {
-  try {
-    dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+        function onOpenCvReady() {
+            status.innerText = 'OpenCV pronto. Iniciando câmera...';
+            startCamera();
+        }
 
-    // API compatível
-    parameters = cv.DetectorParameters_create();
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: { exact: "environment" } }, // Força câmera traseira
+                    audio: false 
+                });
+                video.srcObject = stream;
+                captureBtn.disabled = false;
+                status.innerText = 'Câmera traseira ativa.';
+            } catch (err) {
+                console.error("Erro ao acessar câmera traseira:", err);
+                // Fallback para qualquer câmera disponível caso a 'exact environment' falhe
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                captureBtn.disabled = false;
+                status.innerText = 'Usando câmera padrão (Traseira não forçada).';
+            }
+        }
 
-    corners = new cv.MatVector();
-    ids = new cv.Mat();
+        captureBtn.addEventListener('click', () => {
+            detectArUco();
+        });
 
-    ready = true;
-    status.innerText = "ArUco pronto";
+        function detectArUco() {
+            // Ajustar dimensões do canvas ao vídeo
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
 
-  } catch (e) {
-    status.innerText = "Erro: " + e;
-    console.error(e);
-  }
-};
+            let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+            let cap = new cv.VideoCapture(video);
+            cap.read(src); // Captura o frame atual (a "foto")
 
-// imagem
-document.getElementById("file").onchange = e => {
-  const file = e.target.files[0];
-  if (file) img.src = URL.createObjectURL(file);
-};
+            let dictionary = new cv.Dictionary(cv.DICT_4X4_50);
+            let markerCorners = new cv.MatVector();
+            let markerIds = new cv.Mat();
+            let detectorParameters = new cv.DetectorParameters();
 
-// detecção
-img.onload = () => {
-  if (!ready) {
-    status.innerText = "OpenCV ainda não pronto";
-    return;
-  }
+            // Detecção
+            cv.detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
 
-  try {
-    let src = cv.imread(img);
+            if (markerIds.rows > 0) {
+                status.innerText = `Detectado: ${markerIds.rows} marcador(es). ID: ${markerIds.data32S[0]}`;
+                cv.drawDetectedMarkers(src, markerCorners, markerIds);
+                cv.imshow('canvasOutput', src);
+            } else {
+                status.innerText = "Nenhum marcador encontrado na foto.";
+                // Limpar canvas anterior se não detectar nada
+                const context = canvas.getContext('2d');
+                context.clearRect(0, 0, canvas.width, canvas.height);
+            }
 
-    cv.detectMarkers(src, dictionary, corners, ids, parameters);
-
-    if (ids.rows > 0) {
-      cv.drawDetectedMarkers(src, corners, ids);
-
-      let lista = [];
-      for (let i = 0; i < ids.rows; i++) {
-        lista.push(ids.data32S[i]);
-      }
-
-      status.innerText = "IDs: " + lista.join(", ");
-    } else {
-      status.innerText = "Nenhum marcador";
-    }
-
-    cv.imshow("canvas", src);
-    src.delete();
-
-  } catch (e) {
-    status.innerText = "Erro na detecção";
-    console.error(e);
-  }
-};
-</script>
-
+            // Cleanup
+            src.delete();
+            dictionary.delete();
+            markerCorners.delete();
+            markerIds.delete();
+            detectorParameters.delete();
+        }
+    </script>
 </body>
 </html>
