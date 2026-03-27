@@ -2,102 +2,79 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
-body {
-  font-family: sans-serif;
-  text-align: center;
-  background: #f0f2f5;
-}
-
-canvas, img {
-  width: 90%;
-  max-width: 500px;
-  margin-top: 10px;
-  border-radius: 8px;
-}
-
-button {
-  margin-top: 10px;
-  padding: 10px 20px;
-}
+body { font-family: sans-serif; text-align: center; background: #f0f2f5; }
+canvas, img { width: 90%; max-width: 500px; margin-top: 10px; }
 </style>
 </head>
 
 <body>
 
-<h2>Detector ArUco (Imagem)</h2>
+<h2>Detector ArUco</h2>
+<div id="status">Carregando...</div>
 
-<div id="status">Carregando OpenCV...</div>
-
-<input type="file" id="fileInput" accept="image/*">
-<br>
-<button onclick="processImage()">Detectar</button>
+<input type="file" id="fileInput" accept="image/*"><br><br>
+<button onclick="detectar()">Detectar</button>
 
 <br>
-<img id="preview">
+<img id="img">
 <canvas id="canvas"></canvas>
 
-<script src="https://docs.opencv.org/4.10.0/opencv.js"></script>
+<!-- 🔒 BUILD FIXA (TESTADA) -->
+<script src="https://cdn.jsdelivr.net/npm/opencv-js@1.2.1/opencv.js"></script>
 
 <script>
-const status = document.getElementById('status');
-const input = document.getElementById('fileInput');
-const preview = document.getElementById('preview');
-const canvas = document.getElementById('canvas');
-
-let dictionary, parameters, corners, ids;
 let ready = false;
+let dictionary, parameters, corners, ids;
 
-// 🔁 Aguarda OpenCV de forma segura
-let check = setInterval(() => {
-  if (window.cv && cv.getBuildInformation) {
-    clearInterval(check);
-    init();
+const status = document.getElementById("status");
+const img = document.getElementById("img");
+const input = document.getElementById("fileInput");
+
+// 🔒 ESPERA REAL PELO OPENCV
+let intervalo = setInterval(() => {
+  if (cv && cv.imread) {
+    clearInterval(intervalo);
+    iniciar();
   }
 }, 100);
 
-function init() {
+function iniciar() {
   try {
     dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
-    parameters = new cv.DetectorParameters();
-
+    parameters = cv.DetectorParameters_create();
     corners = new cv.MatVector();
     ids = new cv.Mat();
 
     ready = true;
-    status.innerText = "OpenCV pronto";
-
+    status.innerText = "Pronto";
   } catch (e) {
-    status.innerText = "Erro ao iniciar: " + e;
+    status.innerText = "Erro ao iniciar";
     console.error(e);
   }
 }
 
-// Preview da imagem
 input.onchange = () => {
-  let file = input.files[0];
-  if (file) {
-    preview.src = URL.createObjectURL(file);
-  }
+  const file = input.files[0];
+  if (file) img.src = URL.createObjectURL(file);
 };
 
-function processImage() {
+function detectar() {
+
   if (!ready) {
-    status.innerText = "OpenCV ainda carregando...";
+    status.innerText = "OpenCV não carregou";
     return;
   }
 
-  if (!preview.src) {
-    status.innerText = "Selecione uma imagem";
+  if (!img.src) {
+    status.innerText = "Escolha uma imagem";
     return;
   }
 
   try {
-    let src = cv.imread(preview);
+    let src = cv.imread(img);
 
-    // opcional: reduzir tamanho (performance)
+    // reduz peso
     cv.resize(src, src, new cv.Size(640, 480));
 
     cv.detectMarkers(src, dictionary, corners, ids, parameters);
@@ -110,17 +87,17 @@ function processImage() {
         lista.push(ids.data32S[i]);
       }
 
-      status.innerText = "IDs detectados: " + lista.join(", ");
+      status.innerText = "Detectado: " + lista.join(", ");
     } else {
-      status.innerText = "Nenhum marcador encontrado";
+      status.innerText = "Nenhum marcador";
     }
 
-    cv.imshow(canvas, src);
+    cv.imshow("canvas", src);
     src.delete();
 
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
     status.innerText = "Erro na detecção";
+    console.error(e);
   }
 }
 </script>
