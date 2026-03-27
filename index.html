@@ -70,30 +70,31 @@
         function detectArUco() {
             try {
                 if (!cv || !cv.Mat) {
-                    status.innerText = "Erro: OpenCV não carregou totalmente.";
+                    status.innerText = "Erro: OpenCV não carregou.";
                     return;
                 }
         
-                // Ajustar dimensões do canvas ao vídeo
+                // 1. Captura o frame atual para um canvas temporário para garantir as dimensões
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth;
+                tempCanvas.height = video.videoHeight;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+        
+                // 2. Cria a matriz src com o tamanho EXATO do que foi desenhado
+                let src = cv.imread(tempCanvas); 
+        
+                // 3. Ajusta o canvas de exibição (o que o usuário vê)
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
         
-                let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
-                let cap = new cv.VideoCapture(video);
-                cap.read(src);
-        
-                // --- PONTO CRÍTICO: Verificação do Módulo ArUco ---
-                if (typeof cv.Dictionary === "undefined") {
-                    status.innerText = "Erro: Esta versão do OpenCV.js não suporta ArUco.";
-                    src.delete();
-                    return;
-                }
-        
-                let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50); // Forma mais segura de chamar
+                // 4. Configurações de detecção
+                let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
                 let markerCorners = new cv.MatVector();
                 let markerIds = new cv.Mat();
                 let detectorParameters = new cv.DetectorParameters();
         
+                // 5. Executa a detecção
                 cv.detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
         
                 if (markerIds.rows > 0) {
@@ -101,17 +102,19 @@
                     cv.drawDetectedMarkers(src, markerCorners, markerIds);
                     cv.imshow('canvasOutput', src);
                 } else {
-                    status.innerText = "Foto processada: Nenhum marcador encontrado.";
-                    // Desenha a foto no canvas mesmo sem marcador para confirmar que capturou
-                    cv.imshow('canvasOutput', src);
+                    status.innerText = "Nenhum marcador encontrado na foto.";
+                    cv.imshow('canvasOutput', src); // Mostra a foto capturada mesmo sem ID
                 }
         
                 // Cleanup
-                src.delete(); markerCorners.delete(); markerIds.delete(); detectorParameters.delete();
+                src.delete(); 
+                markerCorners.delete(); 
+                markerIds.delete(); 
+                detectorParameters.delete();
         
             } catch (err) {
                 console.error(err);
-                status.innerText = "Erro na execução: " + err.message;
+                status.innerText = "Erro de Matriz: " + err.message;
             }
         }
     </script>
