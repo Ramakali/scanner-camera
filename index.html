@@ -65,6 +65,8 @@ video.onloadedmetadata = () => {
 function processFrame() {
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "red";
+  ctx.fillRect(10, 10, 20, 20);
 
   let src = cv.imread(canvas);
 
