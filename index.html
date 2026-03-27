@@ -13,11 +13,11 @@ button { margin-top:15px; padding:10px 20px; font-size:16px; }
 
 <body>
 
-<h2>Scanner com ArUco</h2>
+<h2>Scanner com ArUco (Tempo Real)</h2>
 <div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline muted></video>
-<button id="btn" disabled>Capturar</button>
+<button id="btn">Capturar Medida</button>
 
 <div id="dim"></div>
 <canvas id="canvas"></canvas>
@@ -26,9 +26,14 @@ button { margin-top:15px; padding:10px 20px; font-size:16px; }
 
 <script>
 const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
 const btn = document.getElementById('btn');
 const status = document.getElementById('status');
 const dim = document.getElementById('dim');
+
+let latestMeasurement = null;
 
 // ================== OpenCV ==================
 cv['onRuntimeInitialized'] = () => {
@@ -39,134 +44,126 @@ cv['onRuntimeInitialized'] = () => {
 // ================== CAMERA ==================
 async function startCamera() {
   try {
-    // tenta traseira primeiro (mobile)
     let stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } }
     });
-
     video.srcObject = stream;
-
-  } catch (err) {
-    // fallback total (PC)
-    try {
-      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
-    } catch (e) {
-      status.innerText = "Erro câmera: " + e.name;
-    }
+  } catch {
+    let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
   }
 }
 
-// ================== READY ==================
+// ================== LOOP ==================
 video.onloadedmetadata = () => {
   video.play();
-
-  const t = setInterval(() => {
-    if (video.videoWidth > 0) {
-      clearInterval(t);
-      status.innerText = "Pronto";
-      btn.disabled = false;
-    }
-  }, 100);
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  requestAnimationFrame(processFrame);
 };
 
-// ================== CAPTURE ==================
-btn.onclick = () => {
-  let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
-  let cap = new cv.VideoCapture(video);
-  cap.read(src);
+function processFrame() {
 
-  processImage(src);
-};
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-// ================== PROCESS ==================
-function processImage(src) {
+  let src = cv.imread(canvas);
 
-  // -------- ARUCO --------
   let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
   let corners = new cv.MatVector();
   let ids = new cv.Mat();
 
   cv.detectMarkers(src, dictionary, corners, ids);
 
-  if (ids.rows === 0) {
-    alert("Nenhum ArUco detectado");
-    cleanup(src, corners, ids);
-    return;
-  }
+  if (ids.rows > 0) {
 
-  let index = -1;
-  for (let i = 0; i < ids.rows; i++) {
-    if (ids.data32S[i] === 1) {
-      index = i;
-      break;
-    }
-  }
+    // desenha ArUco
+    cv.drawDetectedMarkers(src, corners, ids);
 
-  if (index === -1) {
-    alert("ArUco ID 1 não encontrado");
-    cleanup(src, corners, ids);
-    return;
-  }
-
-  let marker = corners.get(index).data32F;
-
-  let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
-  let ppm = sidePx / 60; // 60mm real
-
-  // -------- DETECÇÃO DO QUADRO --------
-  let gray = new cv.Mat();
-  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-  cv.Canny(gray, gray, 50, 150);
-
-  let contours = new cv.MatVector();
-  let hierarchy = new cv.Mat();
-
-  cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-  let maxArea = 0;
-  let best = null;
-
-  for (let i = 0; i < contours.size(); i++) {
-    let cnt = contours.get(i);
-    let peri = cv.arcLength(cnt, true);
-    let approx = new cv.Mat();
-
-    cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-
-    if (approx.rows === 4) {
-      let area = cv.contourArea(approx);
-      if (area > maxArea) {
-        maxArea = area;
-        best = approx;
+    let index = -1;
+    for (let i = 0; i < ids.rows; i++) {
+      if (ids.data32S[i] === 1) {
+        index = i;
+        break;
       }
     }
+
+    if (index !== -1) {
+
+      let marker = corners.get(index).data32F;
+      let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
+      let ppm = sidePx / 60;
+
+      let gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      cv.Canny(gray, gray, 50, 150);
+
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
+
+      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      let maxArea = 0;
+      let best = null;
+
+      for (let i = 0; i < contours.size(); i++) {
+        let cnt = contours.get(i);
+        let peri = cv.arcLength(cnt, true);
+        let approx = new cv.Mat();
+
+        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+
+        if (approx.rows === 4) {
+          let area = cv.contourArea(approx);
+          if (area > maxArea) {
+            maxArea = area;
+            best = approx;
+          }
+        }
+      }
+
+      if (best) {
+
+        // desenha contorno
+        cv.drawContours(src, new cv.MatVector(best), -1, [255,0,0,255], 3);
+
+        let pts = getSortedCorners(best);
+
+        let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
+        let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
+
+        let wMm = (wPx / ppm).toFixed(0);
+        let hMm = (hPx / ppm).toFixed(0);
+
+        latestMeasurement = { wMm, hMm };
+
+        dim.innerText = `Ao vivo: ${wMm} mm x ${hMm} mm`;
+        status.innerText = "Detectando...";
+      }
+    }
+  } else {
+    status.innerText = "Aguardando ArUco...";
   }
 
-  if (!best) {
-    alert("Quadro não encontrado");
-    cleanup(src, gray, contours, hierarchy, corners, ids);
-    return;
-  }
+  cv.imshow(canvas, src);
 
-  let pts = getSortedCorners(best);
+  src.delete();
+  corners.delete();
+  ids.delete();
 
-  let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
-  let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
-
-  let wMm = (wPx / ppm).toFixed(0);
-  let hMm = (hPx / ppm).toFixed(0);
-
-  dim.innerText = `Medida: ${wMm} mm x ${hMm} mm`;
-
-  cleanup(src, gray, contours, hierarchy, corners, ids);
+  requestAnimationFrame(processFrame);
 }
+
+// ================== CAPTURE ==================
+btn.onclick = () => {
+  if (latestMeasurement) {
+    dim.innerText = `Capturado: ${latestMeasurement.wMm} mm x ${latestMeasurement.hMm} mm`;
+    status.innerText = "Medida congelada";
+  } else {
+    alert("Nenhuma medida disponível ainda");
+  }
+};
 
 // ================== UTIL ==================
-function cleanup(...mats) {
-  mats.forEach(m => m.delete());
-}
-
 function getSortedCorners(contour) {
   let pts = [];
 
