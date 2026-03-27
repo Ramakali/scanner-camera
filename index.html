@@ -66,40 +66,53 @@
             detectArUco();
         });
 
+        // Substitua a função detectArUco por esta versão com tratamento de erro:
         function detectArUco() {
-            // Ajustar dimensões do canvas ao vídeo
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
-            let cap = new cv.VideoCapture(video);
-            cap.read(src); // Captura o frame atual (a "foto")
-
-            let dictionary = new cv.Dictionary(cv.DICT_4X4_50);
-            let markerCorners = new cv.MatVector();
-            let markerIds = new cv.Mat();
-            let detectorParameters = new cv.DetectorParameters();
-
-            // Detecção
-            cv.detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
-
-            if (markerIds.rows > 0) {
-                status.innerText = `Detectado: ${markerIds.rows} marcador(es). ID: ${markerIds.data32S[0]}`;
-                cv.drawDetectedMarkers(src, markerCorners, markerIds);
-                cv.imshow('canvasOutput', src);
-            } else {
-                status.innerText = "Nenhum marcador encontrado na foto.";
-                // Limpar canvas anterior se não detectar nada
-                const context = canvas.getContext('2d');
-                context.clearRect(0, 0, canvas.width, canvas.height);
+            try {
+                if (!cv || !cv.Mat) {
+                    status.innerText = "Erro: OpenCV não carregou totalmente.";
+                    return;
+                }
+        
+                // Ajustar dimensões do canvas ao vídeo
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+        
+                let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+                let cap = new cv.VideoCapture(video);
+                cap.read(src);
+        
+                // --- PONTO CRÍTICO: Verificação do Módulo ArUco ---
+                if (typeof cv.Dictionary === "undefined") {
+                    status.innerText = "Erro: Esta versão do OpenCV.js não suporta ArUco.";
+                    src.delete();
+                    return;
+                }
+        
+                let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50); // Forma mais segura de chamar
+                let markerCorners = new cv.MatVector();
+                let markerIds = new cv.Mat();
+                let detectorParameters = new cv.DetectorParameters();
+        
+                cv.detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
+        
+                if (markerIds.rows > 0) {
+                    status.innerText = `Detectado! ID: ${markerIds.data32S[0]}`;
+                    cv.drawDetectedMarkers(src, markerCorners, markerIds);
+                    cv.imshow('canvasOutput', src);
+                } else {
+                    status.innerText = "Foto processada: Nenhum marcador encontrado.";
+                    // Desenha a foto no canvas mesmo sem marcador para confirmar que capturou
+                    cv.imshow('canvasOutput', src);
+                }
+        
+                // Cleanup
+                src.delete(); markerCorners.delete(); markerIds.delete(); detectorParameters.delete();
+        
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Erro na execução: " + err.message;
             }
-
-            // Cleanup
-            src.delete();
-            dictionary.delete();
-            markerCorners.delete();
-            markerIds.delete();
-            detectorParameters.delete();
         }
     </script>
 </body>
