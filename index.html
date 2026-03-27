@@ -11,11 +11,11 @@ body {
   background: #f0f2f5;
 }
 
-video, canvas {
+canvas, img {
   width: 90%;
   max-width: 500px;
-  border-radius: 8px;
   margin-top: 10px;
+  border-radius: 8px;
 }
 
 button {
@@ -27,124 +27,102 @@ button {
 
 <body>
 
-<h2>Scanner com ArUco</h2>
+<h2>Detector ArUco (Imagem)</h2>
 
-<div id="status">Inicializando...</div>
+<div id="status">Carregando OpenCV...</div>
 
-<video id="video" autoplay playsinline muted></video>
+<input type="file" id="fileInput" accept="image/*">
+<br>
+<button onclick="processImage()">Detectar</button>
+
+<br>
+<img id="preview">
 <canvas id="canvas"></canvas>
 
-<button id="btn">Capturar</button>
-<div id="dim"></div>
-
-<!-- OpenCV com WASM -->
-<script async src="https://docs.opencv.org/4.10.0/opencv.js"></script>
+<script src="https://docs.opencv.org/4.10.0/opencv.js"></script>
 
 <script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
 const status = document.getElementById('status');
+const input = document.getElementById('fileInput');
+const preview = document.getElementById('preview');
+const canvas = document.getElementById('canvas');
 
-let detector, dictionary, parameters;
-let src, corners, ids;
+let dictionary, parameters, corners, ids;
+let ready = false;
 
-let initialized = false;
+// 🔁 Aguarda OpenCV de forma segura
+let check = setInterval(() => {
+  if (window.cv && cv.getBuildInformation) {
+    clearInterval(check);
+    init();
+  }
+}, 100);
 
-// ================= INIT =================
-cv['onRuntimeInitialized'] = () => {
-
+function init() {
   try {
-
-    // 🔒 Inicializa UMA VEZ
     dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
     parameters = new cv.DetectorParameters();
-    detector = new cv.ArucoDetector(dictionary, parameters);
 
     corners = new cv.MatVector();
     ids = new cv.Mat();
 
-    status.innerText = "OpenCV + ArUco OK";
-
-    initialized = true;
-
-    startCamera();
+    ready = true;
+    status.innerText = "OpenCV pronto";
 
   } catch (e) {
-    status.innerText = "Erro ao iniciar ArUco: " + e;
+    status.innerText = "Erro ao iniciar: " + e;
     console.error(e);
+  }
+}
+
+// Preview da imagem
+input.onchange = () => {
+  let file = input.files[0];
+  if (file) {
+    preview.src = URL.createObjectURL(file);
   }
 };
 
-// ================= CAMERA =================
-async function startCamera() {
-
-  try {
-    let stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } }
-    });
-    video.srcObject = stream;
-  } catch {
-    let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
+function processImage() {
+  if (!ready) {
+    status.innerText = "OpenCV ainda carregando...";
+    return;
   }
 
-  video.addEventListener("playing", () => {
-    requestAnimationFrame(processFrame);
-  });
-}
-
-// ================= LOOP =================
-function processFrame() {
-  if (!initialized || video.paused || video.ended || video.videoWidth === 0) {
-    requestAnimationFrame(processFrame);
+  if (!preview.src) {
+    status.innerText = "Selecione uma imagem";
     return;
   }
 
   try {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    let src = cv.imread(preview);
 
-    // 💡 Forma mais estável de ler do Canvas para o OpenCV
-    let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let src = cv.matFromImageData(imgData);
+    // opcional: reduzir tamanho (performance)
+    cv.resize(src, src, new cv.Size(640, 480));
 
-    // Converte para RGB se necessário (ArUco prefere ou escala de cinza ou RGB)
-    // Se a detecção falhar, tente: cv.cvtColor(src, src, cv.COLOR_RGBA2RGB);
-
-    detector.detectMarkers(src, corners, ids);
+    cv.detectMarkers(src, dictionary, corners, ids, parameters);
 
     if (ids.rows > 0) {
       cv.drawDetectedMarkers(src, corners, ids);
-      
+
       let lista = [];
       for (let i = 0; i < ids.rows; i++) {
         lista.push(ids.data32S[i]);
       }
-      status.innerText = "IDs: " + lista.join(", ");
+
+      status.innerText = "IDs detectados: " + lista.join(", ");
     } else {
-      status.innerText = "Buscando ArUco...";
+      status.innerText = "Nenhum marcador encontrado";
     }
 
-    cv.imshow('canvas', src);
-
-    // Limpeza obrigatória para não travar o browser
-    src.delete(); 
+    cv.imshow(canvas, src);
+    src.delete();
 
   } catch (err) {
-    // Se o erro for "OpenCV Error: Insufficient memory", o delete() falhou
-    console.error("Erro no processamento:", err);
+    console.error(err);
+    status.innerText = "Erro na detecção";
   }
-
-  requestAnimationFrame(processFrame);
 }
-
-// ================= CAPTURE =================
-document.getElementById('btn').onclick = () => {
-  alert("Captura ainda não integrada com medição");
-};
 </script>
 
 </body>
