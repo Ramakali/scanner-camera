@@ -75,7 +75,7 @@
                     return;
                 }
         
-                // 1. Captura para canvas temporário (evita erro de 'bad size')
+                // 1. Preparação do Canvas e Matriz
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = video.videoWidth;
                 tempCanvas.height = video.videoHeight;
@@ -86,38 +86,54 @@
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
         
-                // 2. Instanciando o dicionário e os parâmetros com fallback
-                // Algumas versões usam construtores, outras funções de retorno
-                let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+                // 2. Acesso seguro ao dicionário e parâmetros
+                // Tentamos o padrão cv.aruco_... que é o mais comum em JS
+                let dictionary, detectorParameters;
                 
+                try {
+                    // Tenta o formato: cv.getPredefinedDictionary
+                    dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+                    detectorParameters = new cv.DetectorParameters();
+                } catch (e) {
+                    // Se falhar, tenta o formato: cv.aruco_getPredefinedDictionary
+                    console.log("Tentando fallback para prefixo aruco_");
+                    dictionary = cv.aruco_getPredefinedDictionary(cv.DICT_4X4_50);
+                    detectorParameters = new cv.aruco_DetectorParameters();
+                }
+        
                 let markerCorners = new cv.MatVector();
                 let markerIds = new cv.Mat();
-                
-                // CORREÇÃO AQUI: Tenta o construtor, se falhar, tenta a função factory
-                let detectorParameters;
-                try {
-                    detectorParameters = new cv.DetectorParameters();
-                } catch(e) {
-                    detectorParameters = new cv.aruco_DetectorParameters(); // Fallback comum em builds JS
-                }
         
-                // 3. Detecção
-                cv.detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
+                // 3. Execução da Detecção
+                // Novamente, tenta com e sem o prefixo 'aruco_'
+                if (typeof cv.detectMarkers !== "undefined") {
+                    cv.detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
+                } else {
+                    cv.aruco_detectMarkers(src, dictionary, markerCorners, markerIds, detectorParameters);
+                }
         
                 if (markerIds.rows > 0) {
-                    status.innerText = `Sucesso! ID: ${markerIds.data32S[0]}`;
-                    cv.drawDetectedMarkers(src, markerCorners, markerIds);
+                    status.innerText = `ID Detectado: ${markerIds.data32S[0]}`;
+                    
+                    // Desenha o marcador (ajusta se a função de desenho também tiver prefixo)
+                    try {
+                        cv.drawDetectedMarkers(src, markerCorners, markerIds);
+                    } catch(e) {
+                        cv.aruco_drawDetectedMarkers(src, markerCorners, markerIds);
+                    }
+                    
                     cv.imshow('canvasOutput', src);
                 } else {
-                    status.innerText = "Nenhum marcador 4x4_50 encontrado.";
+                    status.innerText = "Nenhum marcador 4x4 encontrado nesta foto.";
                     cv.imshow('canvasOutput', src);
                 }
         
-                // Cleanup
+                // Limpeza de memória
                 src.delete(); markerCorners.delete(); markerIds.delete();
+                
             } catch (err) {
-                console.error(err);
-                status.innerText = "Erro: " + err.message;
+                console.error("Erro detalhado:", err);
+                status.innerText = "Erro de compatibilidade: " + err.message;
             }
         }
     </script>
