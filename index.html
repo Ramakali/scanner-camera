@@ -97,54 +97,45 @@ async function startCamera() {
 
 // ================= LOOP =================
 function processFrame() {
-
-  if (!initialized || video.paused || video.ended) {
+  if (!initialized || video.paused || video.ended || video.videoWidth === 0) {
     requestAnimationFrame(processFrame);
     return;
   }
 
   try {
-
-    if (video.videoWidth === 0) {
-      requestAnimationFrame(processFrame);
-      return;
-    }
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 🔥 captura imagem
+    // 💡 Forma mais estável de ler do Canvas para o OpenCV
     let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    src = cv.matFromImageData(imgData);
+    let src = cv.matFromImageData(imgData);
 
-    // 🔍 DETECÇÃO ARUCO
+    // Converte para RGB se necessário (ArUco prefere ou escala de cinza ou RGB)
+    // Se a detecção falhar, tente: cv.cvtColor(src, src, cv.COLOR_RGBA2RGB);
+
     detector.detectMarkers(src, corners, ids);
 
     if (ids.rows > 0) {
-
       cv.drawDetectedMarkers(src, corners, ids);
-
+      
       let lista = [];
       for (let i = 0; i < ids.rows; i++) {
         lista.push(ids.data32S[i]);
       }
-
       status.innerText = "IDs: " + lista.join(", ");
-
     } else {
       status.innerText = "Buscando ArUco...";
     }
 
     cv.imshow('canvas', src);
 
-    // 🔒 LIMPEZA DO FRAME
-    src.delete();
+    // Limpeza obrigatória para não travar o browser
+    src.delete(); 
 
   } catch (err) {
-    console.error("Erro:", err);
-    status.innerText = "Erro: " + err;
+    // Se o erro for "OpenCV Error: Insufficient memory", o delete() falhou
+    console.error("Erro no processamento:", err);
   }
 
   requestAnimationFrame(processFrame);
