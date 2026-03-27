@@ -83,8 +83,7 @@ function processFrame() {
 
     let index = -1;
     for (let i = 0; i < ids.rows; i++) {
-      if (ids.data32S[i] === 1) {
-        index = i;
+        index = 0;
         break;
       }
     }
@@ -125,6 +124,8 @@ function processFrame() {
 
       if (best) {
 
+        status.innerText = "Quadro detectado";
+
         // desenha contorno
         cv.drawContours(src, new cv.MatVector(best), -1, [255,0,0,255], 3);
 
@@ -143,7 +144,11 @@ function processFrame() {
       }
     }
   } else {
-    status.innerText = "Aguardando ArUco...";
+    if (ids.rows > 0) {
+      status.innerText = "ArUco detectado";
+    } else {
+      status.innerText = "Aguardando ArUco...";
+    }
   }
 
   cv.imshow(canvas, src);
