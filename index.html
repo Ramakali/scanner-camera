@@ -6,21 +6,56 @@
 
 <style>
 body { font-family: sans-serif; text-align:center; background:#f0f2f5; }
-video, canvas { width:90%; max-width:500px; border-radius:8px; margin-top:10px; }
-button { margin-top:15px; padding:10px 20px; font-size:16px; }
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  background: #ddd;
+  margin: 2px;
+  border-radius: 5px;
+}
+
+.active {
+  background: #4285f4;
+  color: white;
+}
+
+video, canvas {
+  width: 90%;
+  max-width: 500px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+button {
+  margin-top: 10px;
+  padding: 10px 20px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>Scanner com ArUco (Tempo Real)</h2>
+<h2>Scanner com ArUco</h2>
+
+<div class="tabs">
+  <div class="tab active" onclick="setTab('scanner')">Scanner</div>
+  <div class="tab" onclick="setTab('tools')">Tools</div>
+</div>
+
 <div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline muted></video>
-<button id="btn">Capturar Medida</button>
-
-<div id="dim"></div>
 <canvas id="canvas"></canvas>
+
+<button id="btn">Capturar Medida</button>
+<div id="dim"></div>
 
 <script src="https://docs.opencv.org/4.x/opencv.js"></script>
 
@@ -33,15 +68,28 @@ const btn = document.getElementById('btn');
 const status = document.getElementById('status');
 const dim = document.getElementById('dim');
 
+let mode = "scanner";
 let latestMeasurement = null;
 
-// ================== OpenCV ==================
+// ================= TAB =================
+function setTab(tab) {
+  mode = tab;
+
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+
+  status.innerText = tab === "tools"
+    ? "Modo Tools: mostrando ArUco"
+    : "Modo Scanner";
+}
+
+// ================= OpenCV =================
 cv['onRuntimeInitialized'] = () => {
   status.innerText = "OpenCV pronto. Iniciando câmera...";
   startCamera();
 };
 
-// ================== CAMERA ==================
+// ================= CAMERA =================
 async function startCamera() {
   try {
     let stream = await navigator.mediaDevices.getUserMedia({
@@ -54,14 +102,14 @@ async function startCamera() {
   }
 }
 
-// ================== LOOP ==================
-video.onloadedmetadata = () => {
-  video.play();
+// ================= LOOP =================
+video.addEventListener("playing", () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   requestAnimationFrame(processFrame);
-};
+});
 
+// ================= FRAME =================
 function processFrame() {
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -74,76 +122,84 @@ function processFrame() {
 
   cv.detectMarkers(src, dictionary, corners, ids);
 
-  if (ids.rows > 0) {
+  // ===== TOOLS MODE =====
+  if (mode === "tools") {
 
-    status.innerText = "ArUco detectado";
+    if (ids.rows > 0) {
+      cv.drawDetectedMarkers(src, corners, ids);
+      status.innerText = "Detectados: " + ids.data32S.join(",");
+    } else {
+      status.innerText = "Nenhum ArUco detectado";
+    }
 
-    cv.drawDetectedMarkers(src, corners, ids);
+  }
 
-    let index = 0; // pega o primeiro automaticamente
+  // ===== SCANNER MODE =====
+  if (mode === "scanner") {
 
-    let marker = corners.get(index).data32F;
-    let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
-    let ppm = sidePx / 60;
+    if (ids.rows > 0) {
 
-    let gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
-    cv.Canny(gray, gray, 30, 100);
+      let marker = corners.get(0).data32F;
+      let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
+      let ppm = sidePx / 60;
 
-    let contours = new cv.MatVector();
-    let hierarchy = new cv.Mat();
+      let gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
+      cv.Canny(gray, gray, 30, 100);
 
-    cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
 
-    let maxArea = 0;
-    let best = null;
+      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-    for (let i = 0; i < contours.size(); i++) {
-      let cnt = contours.get(i);
-      let peri = cv.arcLength(cnt, true);
-      let approx = new cv.Mat();
+      let maxArea = 0;
+      let best = null;
 
-      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+      for (let i = 0; i < contours.size(); i++) {
+        let cnt = contours.get(i);
+        let peri = cv.arcLength(cnt, true);
+        let approx = new cv.Mat();
 
-      if (approx.rows === 4) {
-        let area = cv.contourArea(approx);
-        if (area > maxArea) {
-          maxArea = area;
-          best = approx;
+        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+
+        if (approx.rows === 4) {
+          let area = cv.contourArea(approx);
+          if (area > maxArea) {
+            maxArea = area;
+            best = approx;
+          }
         }
       }
+
+      if (best) {
+
+        let contourVec = new cv.MatVector();
+        contourVec.push_back(best);
+        cv.drawContours(src, contourVec, -1, [255,0,0,255], 3);
+
+        let pts = getSortedCorners(best);
+
+        let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
+        let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
+
+        let wMm = (wPx / ppm).toFixed(0);
+        let hMm = (hPx / ppm).toFixed(0);
+
+        latestMeasurement = { wMm, hMm };
+
+        dim.innerText = `Ao vivo: ${wMm} x ${hMm} mm`;
+
+        contourVec.delete();
+      }
+
+      gray.delete();
+      contours.delete();
+      hierarchy.delete();
+
+    } else {
+      status.innerText = "Aguardando ArUco...";
     }
-
-    if (best) {
-
-      let contourVec = new cv.MatVector();
-      contourVec.push_back(best);
-
-      cv.drawContours(src, contourVec, -1, [255,0,0,255], 3);
-
-      let pts = getSortedCorners(best);
-
-      let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
-      let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
-
-      let wMm = (wPx / ppm).toFixed(0);
-      let hMm = (hPx / ppm).toFixed(0);
-
-      latestMeasurement = { wMm, hMm };
-
-      dim.innerText = `Ao vivo: ${wMm} mm x ${hMm} mm`;
-      status.innerText = "Detectando quadro";
-
-      contourVec.delete();
-    }
-
-    gray.delete();
-    contours.delete();
-    hierarchy.delete();
-
-  } else {
-    status.innerText = "Aguardando ArUco...";
   }
 
   cv.imshow(canvas, src);
@@ -153,22 +209,20 @@ function processFrame() {
   ids.delete();
 
   requestAnimationFrame(processFrame);
-};
-  
-// ================== CAPTURE ==================
+}
+
+// ================= CAPTURE =================
 btn.onclick = () => {
   if (latestMeasurement) {
-    dim.innerText = `Capturado: ${latestMeasurement.wMm} mm x ${latestMeasurement.hMm} mm`;
-    status.innerText = "Medida congelada";
+    dim.innerText = `Capturado: ${latestMeasurement.wMm} x ${latestMeasurement.hMm} mm`;
   } else {
     alert("Nenhuma medida disponível ainda");
   }
 };
 
-// ================== UTIL ==================
+// ================= UTIL =================
 function getSortedCorners(contour) {
   let pts = [];
-
   for (let i = 0; i < 4; i++) {
     pts.push({
       x: contour.data32S[i*2],
@@ -177,7 +231,6 @@ function getSortedCorners(contour) {
   }
 
   pts.sort((a,b)=>a.y-b.y);
-
   let top = pts.slice(0,2).sort((a,b)=>a.x-b.x);
   let bottom = pts.slice(2,4).sort((a,b)=>b.x-a.x);
 
