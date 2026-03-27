@@ -1,3 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: sans-serif;
+  text-align: center;
+  background: #f0f2f5;
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  background: #ddd;
+  margin: 2px;
+  border-radius: 5px;
+}
+
+.active {
+  background: #4285f4;
+  color: white;
+}
+
+video, canvas {
+  width: 90%;
+  max-width: 500px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+button {
+  margin-top: 10px;
+  padding: 10px 20px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Scanner com ArUco</h2>
+
+<div class="tabs">
+  <div class="tab active" onclick="setTab(event,'scanner')">Scanner</div>
+  <div class="tab" onclick="setTab(event,'tools')">Tools</div>
+</div>
+
+<div id="status">Inicializando...</div>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+
+<button id="btn">Capturar Medida</button>
+<div id="dim"></div>
+
 <script src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <script>
@@ -15,23 +78,26 @@ let latestMeasurement = null;
 let detector = null;
 
 // ================= TAB =================
-function setTab(tab) {
+function setTab(e, tab) {
   mode = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+  e.target.classList.add('active');
 }
 
 // ================= OpenCV =================
 cv['onRuntimeInitialized'] = () => {
 
-  // 🔥 CRIA DETECTOR ARUCO CORRETO
   if (cv.ArucoDetector) {
+
     let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
     let parameters = new cv.DetectorParameters();
+
     detector = new cv.ArucoDetector(dictionary, parameters);
 
     status.innerText = "OpenCV + ArUco OK";
+
   } else {
+
     status.innerText = "ERRO: OpenCV sem ArUco";
   }
 
@@ -76,7 +142,7 @@ function processFrame() {
     let corners = new cv.MatVector();
     let ids = new cv.Mat();
 
-    // ===== ARUCO DETECÇÃO =====
+    // ===== ARUCO =====
     if (detector) {
 
       detector.detectMarkers(src, corners, ids);
@@ -96,8 +162,6 @@ function processFrame() {
         status.innerText = "Sem ArUco";
       }
 
-    } else {
-      status.innerText = "Aruco não disponível";
     }
 
     cv.imshow('canvas', src);
@@ -107,8 +171,10 @@ function processFrame() {
     ids.delete();
 
   } catch (err) {
+
     console.error(err);
     status.innerText = "Erro: " + err;
+
   }
 
   requestAnimationFrame(processFrame);
@@ -123,3 +189,6 @@ btn.onclick = () => {
   }
 };
 </script>
+
+</body>
+</html>
