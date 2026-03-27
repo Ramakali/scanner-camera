@@ -113,101 +113,35 @@ video.addEventListener("playing", () => {
 // ================= FRAME =================
 function processFrame() {
 
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  try {
 
-  let src = cv.imread(canvas);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
-  let corners = new cv.MatVector();
-  let ids = new cv.Mat();
+    let src = cv.imread(canvas);
 
-  cv.detectMarkers(src, dictionary, corners, ids);
+    let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+    let corners = new cv.MatVector();
+    let ids = new cv.Mat();
 
-  // ===== TOOLS MODE =====
-  if (mode === "tools") {
+    cv.detectMarkers(src, dictionary, corners, ids);
 
     if (ids.rows > 0) {
       cv.drawDetectedMarkers(src, corners, ids);
-      status.innerText = "Detectados: " + ids.data32S.join(",");
+      status.innerText = "ArUco detectado: " + ids.data32S.join(",");
     } else {
-      status.innerText = "Nenhum ArUco detectado";
+      status.innerText = "Nenhum ArUco";
     }
 
+    cv.imshow(canvas, src);
+
+    src.delete();
+    corners.delete();
+    ids.delete();
+
+  } catch (err) {
+    console.error("Erro no loop:", err);
+    status.innerText = "Erro: " + err.message;
   }
-
-  // ===== SCANNER MODE =====
-  if (mode === "scanner") {
-
-    if (ids.rows > 0) {
-
-      let marker = corners.get(0).data32F;
-      let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
-      let ppm = sidePx / 60;
-
-      let gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
-      cv.Canny(gray, gray, 30, 100);
-
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
-
-      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-      let maxArea = 0;
-      let best = null;
-
-      for (let i = 0; i < contours.size(); i++) {
-        let cnt = contours.get(i);
-        let peri = cv.arcLength(cnt, true);
-        let approx = new cv.Mat();
-
-        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-
-        if (approx.rows === 4) {
-          let area = cv.contourArea(approx);
-          if (area > maxArea) {
-            maxArea = area;
-            best = approx;
-          }
-        }
-      }
-
-      if (best) {
-
-        let contourVec = new cv.MatVector();
-        contourVec.push_back(best);
-        cv.drawContours(src, contourVec, -1, [255,0,0,255], 3);
-
-        let pts = getSortedCorners(best);
-
-        let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
-        let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
-
-        let wMm = (wPx / ppm).toFixed(0);
-        let hMm = (hPx / ppm).toFixed(0);
-
-        latestMeasurement = { wMm, hMm };
-
-        dim.innerText = `Ao vivo: ${wMm} x ${hMm} mm`;
-
-        contourVec.delete();
-      }
-
-      gray.delete();
-      contours.delete();
-      hierarchy.delete();
-
-    } else {
-      status.innerText = "Aguardando ArUco...";
-    }
-  }
-
-  cv.imshow(canvas, src);
-
-  src.delete();
-  corners.delete();
-  ids.delete();
 
   requestAnimationFrame(processFrame);
 }
