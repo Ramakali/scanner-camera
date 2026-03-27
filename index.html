@@ -1,106 +1,121 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco Detector - GitHub.io</title>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/aruco.js"></script>
+    <title>ArUco com Webcam - Detecção ao Vivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/aruco.js"></script>
     <style>
-        canvas { border: 1px solid #ccc; max-width: 100%; }
-        #status { font-family: monospace; margin-top: 10px; }
+        body { font-family: Arial; text-align: center; padding: 20px; }
+        video, canvas { border: 2px solid #333; margin: 10px; max-width: 100%; }
+        #status { font-size: 18px; margin: 10px; padding: 10px; background: #f0f0f0; display: inline-block; }
+        .container { display: inline-block; }
     </style>
 </head>
 <body>
-    <h3>Detector ArUco - Funciona no GitHub.io!</h3>
-    <canvas id="canvas" width="640" height="480"></canvas>
-    <div id="status">Carregando imagem...</div>
+    <h2>🎯 Detector ArUco com Câmera</h2>
+    <p>Mostre seu marcador ArUco para a câmera!</p>
+    
+    <div class="container">
+        <h3>📷 Vídeo da Câmera</h3>
+        <video id="video" width="640" height="480" autoplay playsinline></video>
+    </div>
+    
+    <div class="container">
+        <h3>🔍 Detecção (contorno vermelho)</h3>
+        <canvas id="canvas" width="640" height="480"></canvas>
+    </div>
+    
+    <div id="status">⏳ Aguardando permissão da câmera...</div>
 
     <script>
-        // Aguarda o carregamento completo da página
-        window.onload = function() {
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            const statusDiv = document.getElementById('status');
-            
-            // Cria o detector usando o dicionário ARUCO_MIP_36h12 (padrão)
-            const detector = new AR.Detector();
-            
-            // Cria uma imagem de exemplo com um marcador simulado
-            // (substitua pelo caminho da sua imagem real)
-            const img = new Image();
-            
-            // Se você não tem uma imagem com marcador, pode desenhar um exemplo
-            // Este é um fallback - use sua própria imagem real
-            img.onload = function() {
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                statusDiv.textContent = 'Processando imagem...';
-                
-                // Obtém os dados da imagem e detecta
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const markers = detector.detect(imageData);
-                
-                if (markers.length > 0) {
-                    statusDiv.innerHTML = `✅ Encontrados ${markers.length} marcador(es):<br>`;
-                    markers.forEach(marker => {
-                        statusDiv.innerHTML += `ID: ${marker.id}<br>`;
-                        
-                        // Desenha um contorno vermelho ao redor do marcador detectado
-                        ctx.strokeStyle = 'red';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(marker.corners[0].x, marker.corners[0].y);
-                        for (let i = 1; i < marker.corners.length; i++) {
-                            ctx.lineTo(marker.corners[i].x, marker.corners[i].y);
-                        }
-                        ctx.closePath();
-                        ctx.stroke();
-                        
-                        // Escreve o ID próximo ao marcador
-                        ctx.fillStyle = 'red';
-                        ctx.font = 'bold 20px Arial';
-                        ctx.fillText(`ID: ${marker.id}`, marker.corners[0].x, marker.corners[0].y - 10);
-                    });
-                } else {
-                    statusDiv.innerHTML = '⚠️ Nenhum marcador encontrado nesta imagem.';
-                }
-            };
-            
-            // Para testar sem uma imagem real, você pode criar um marcador de exemplo:
-            // Mas o ideal é usar uma imagem real com marcador ArUco impresso/fotografado
-            
-            // CARREGUE SUA PRÓPRIA IMAGEM AQUI:
-            // img.src = 'sua-imagem-com-marcador.jpg';
-            
-            // Exemplo: desenha um marcador simulado para demonstrar a detecção
-            // (na prática, use uma foto real com marcadores)
-            function drawSimulatedMarker() {
-                // Desenha um quadrado preto com borda e padrão simulando marcador
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = 'black';
-                ctx.fillRect(100, 100, 120, 120);
-                ctx.fillStyle = 'white';
-                ctx.fillRect(110, 110, 100, 100);
-                ctx.fillStyle = 'black';
-                // Desenha um padrão simples
-                for(let i = 0; i < 3; i++) {
-                    for(let j = 0; j < 3; j++) {
-                        if((i+j) % 2 === 0) {
-                            ctx.fillRect(120 + i*20, 120 + j*20, 15, 15);
-                        }
-                    }
-                }
-                
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const markers = detector.detect(imageData);
-                if(markers.length > 0) {
-                    statusDiv.innerHTML = `✅ Detectado marcador ID ${markers[0].id} (simulado)`;
-                } else {
-                    statusDiv.innerHTML = 'ℹ️ Para testar com marcadores reais, substitua a imagem de exemplo por uma foto de um marcador ArUco.';
-                }
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        
+        // Cria o detector (usando o dicionário ARUCO_MIP_36h12, que é o padrão)
+        const detector = new AR.Detector();
+        
+        // Variável para controle da animação
+        let animationId = null;
+        
+        // Função que processa cada frame do vídeo
+        function detectMarkers() {
+            if (!video.videoWidth || !video.videoHeight) {
+                animationId = requestAnimationFrame(detectMarkers);
+                return;
             }
             
-            // Por padrão, desenha um exemplo simulado
-            drawSimulatedMarker();
-        };
+            // Desenha o frame atual do vídeo no canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Pega os dados da imagem do canvas
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Detecta os marcadores ArUco
+            const markers = detector.detect(imageData);
+            
+            // Atualiza o status na tela
+            if (markers && markers.length > 0) {
+                statusDiv.innerHTML = `✅ Detectado(s): ${markers.length} marcador(es)<br>IDs: ${markers.map(m => m.id).join(', ')}`;
+                statusDiv.style.background = '#d4edda';
+                
+                // Desenha o contorno ao redor de cada marcador detectado
+                markers.forEach(marker => {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(marker.corners[0].x, marker.corners[0].y);
+                    for (let i = 1; i < marker.corners.length; i++) {
+                        ctx.lineTo(marker.corners[i].x, marker.corners[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    
+                    // Escreve o ID próximo ao marcador
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 20px Arial';
+                    ctx.fillText(`ID: ${marker.id}`, marker.corners[0].x, marker.corners[0].y - 10);
+                });
+            } else {
+                statusDiv.innerHTML = '🔍 Nenhum marcador detectado. Aponte a câmera para um marcador ArUco.';
+                statusDiv.style.background = '#f0f0f0';
+            }
+            
+            // Continua o loop de detecção
+            animationId = requestAnimationFrame(detectMarkers);
+        }
+        
+        // Inicia a câmera
+        async function startCamera() {
+            try {
+                // Solicita acesso à câmera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'environment' // Usa a câmera traseira em celulares
+                    } 
+                });
+                
+                video.srcObject = stream;
+                
+                // Aguarda o vídeo começar a tocar
+                video.onloadedmetadata = () => {
+                    video.play();
+                    statusDiv.innerHTML = '📷 Câmera ativada! Iniciando detecção...';
+                    
+                    // Inicia o loop de detecção
+                    detectMarkers();
+                };
+            } catch (error) {
+                console.error('Erro ao acessar câmera:', error);
+                statusDiv.innerHTML = '❌ Erro ao acessar a câmera. Verifique as permissões.';
+                statusDiv.style.background = '#f8d7da';
+            }
+        }
+        
+        // Inicia tudo
+        startCamera();
     </script>
 </body>
 </html>
