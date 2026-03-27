@@ -13,7 +13,7 @@ button { margin-top:15px; padding:10px 20px; font-size:16px; }
 
 <body>
 
-<h2>Scanner</h2>
+<h2>Scanner com ArUco</h2>
 <div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline muted></video>
@@ -37,14 +37,24 @@ cv['onRuntimeInitialized'] = () => {
 };
 
 // ================== CAMERA ==================
-function startCamera() {
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-      video.srcObject = stream;
-    })
-    .catch(err => {
-      status.innerText = "Erro câmera: " + err.name;
+async function startCamera() {
+  try {
+    // tenta traseira primeiro (mobile)
+    let stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } }
     });
+
+    video.srcObject = stream;
+
+  } catch (err) {
+    // fallback total (PC)
+    try {
+      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    } catch (e) {
+      status.innerText = "Erro câmera: " + e.name;
+    }
+  }
 }
 
 // ================== READY ==================
@@ -72,6 +82,39 @@ btn.onclick = () => {
 // ================== PROCESS ==================
 function processImage(src) {
 
+  // -------- ARUCO --------
+  let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+  let corners = new cv.MatVector();
+  let ids = new cv.Mat();
+
+  cv.detectMarkers(src, dictionary, corners, ids);
+
+  if (ids.rows === 0) {
+    alert("Nenhum ArUco detectado");
+    cleanup(src, corners, ids);
+    return;
+  }
+
+  let index = -1;
+  for (let i = 0; i < ids.rows; i++) {
+    if (ids.data32S[i] === 1) {
+      index = i;
+      break;
+    }
+  }
+
+  if (index === -1) {
+    alert("ArUco ID 1 não encontrado");
+    cleanup(src, corners, ids);
+    return;
+  }
+
+  let marker = corners.get(index).data32F;
+
+  let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
+  let ppm = sidePx / 60; // 60mm real
+
+  // -------- DETECÇÃO DO QUADRO --------
   let gray = new cv.Mat();
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
   cv.Canny(gray, gray, 50, 150);
@@ -101,18 +144,22 @@ function processImage(src) {
   }
 
   if (!best) {
-    alert("Objeto não encontrado");
+    alert("Quadro não encontrado");
+    cleanup(src, gray, contours, hierarchy, corners, ids);
     return;
   }
 
   let pts = getSortedCorners(best);
 
-  let w = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
-  let h = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
+  let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
+  let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
 
-  dim.innerText = `Pixels: ${w.toFixed(0)} x ${h.toFixed(0)}`;
+  let wMm = (wPx / ppm).toFixed(0);
+  let hMm = (hPx / ppm).toFixed(0);
 
-  cleanup(src, gray, contours, hierarchy);
+  dim.innerText = `Medida: ${wMm} mm x ${hMm} mm`;
+
+  cleanup(src, gray, contours, hierarchy, corners, ids);
 }
 
 // ================== UTIL ==================
