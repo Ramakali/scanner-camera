@@ -1,26 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco Funcional</title>
-    <!-- Referência LOCAL (não depende de internet) -->
+    <title>ArUco com Câmera</title>
     <script src="aruco.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { font-family: Arial; padding: 20px; text-align: center; }
-        video, canvas { border: 2px solid #333; margin: 10px; max-width: 90%; }
-        button { padding: 12px 24px; font-size: 16px; margin: 10px; cursor: pointer; background: #007aff; color: white; border: none; border-radius: 8px; }
-        #status { margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 8px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: white;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        video, canvas {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border-radius: 12px;
+            margin: 10px auto;
+            display: block;
+        }
+        
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 12px;
+            margin: 20px;
+            cursor: pointer;
+            width: 80%;
+            max-width: 300px;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+            background: #0051d5;
+        }
+        
+        #status {
+            background: rgba(0,0,0,0.7);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px;
+            font-size: 14px;
+            word-break: break-word;
+        }
+        
+        .info {
+            background: #222;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px;
+            text-align: left;
+            font-size: 12px;
+        }
+        
+        h2 {
+            margin: 10px 0;
+            font-size: 20px;
+        }
     </style>
 </head>
 <body>
-    <h2>🎯 Detector ArUco</h2>
-    <button id="btnCamera">📷 Ativar Câmera</button>
-    
-    <div>
-        <video id="video" width="640" height="480" autoplay playsinline muted style="display: none;"></video>
-        <canvas id="canvas" width="640" height="480"></canvas>
+    <div class="container">
+        <h2>🎯 Detector ArUco</h2>
+        <button id="btnCamera">📷 ATIVAR CÂMERA</button>
+        
+        <video id="video" autoplay playsinline muted style="display: none;"></video>
+        <canvas id="canvas"></canvas>
+        
+        <div id="status">⚠️ Clique no botão acima para ativar a câmera</div>
+        
+        <div class="info">
+            <strong>📱 Instruções:</strong><br>
+            1. Toque no botão "ATIVAR CÂMERA"<br>
+            2. Permita o acesso quando solicitado<br>
+            3. Aponte para o marcador ArUco<br>
+            4. O contorno vermelho aparecerá quando detectado
+        </div>
     </div>
-    
-    <div id="status">⚠️ Clique em "Ativar Câmera" e aponte para o marcador</div>
 
     <script>
         const video = document.getElementById('video');
@@ -33,21 +101,30 @@
         let animationId = null;
         let cameraActive = false;
         
-        // VERIFICA SE A BIBLIOTECA CARREGOU
+        // Configura o tamanho do canvas
+        canvas.width = 640;
+        canvas.height = 480;
+        
+        // Verifica se a biblioteca carregou
         if (typeof AR === 'undefined') {
-            statusDiv.innerHTML = '❌ ERRO: Biblioteca aruco.js não carregou. Verifique se o arquivo está na mesma pasta.';
-            statusDiv.style.background = '#f8d7da';
+            statusDiv.innerHTML = '❌ ERRO: Biblioteca aruco.js não carregou.';
+            statusDiv.style.background = '#8b0000';
         } else {
-            statusDiv.innerHTML = '✅ Biblioteca carregada! Clique em "Ativar Câmera".';
-            // Cria o detector ANTES de ativar a câmera
-            detector = new AR.Detector();
-            console.log('Detector criado com sucesso');
+            statusDiv.innerHTML = '✅ Biblioteca carregada! Toque no botão para ativar a câmera.';
+            statusDiv.style.background = '#1a472a';
+            try {
+                detector = new AR.Detector();
+                console.log('Detector criado');
+            } catch(e) {
+                console.error('Erro ao criar detector:', e);
+                statusDiv.innerHTML = '❌ Erro ao criar detector: ' + e.message;
+            }
         }
         
-        // Processa cada frame
-        function processFrame() {
+        // Função principal de detecção
+        function detectMarkers() {
             if (!cameraActive || !video.videoWidth) {
-                if (cameraActive) animationId = requestAnimationFrame(processFrame);
+                animationId = requestAnimationFrame(detectMarkers);
                 return;
             }
             
@@ -55,20 +132,17 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             try {
-                // Pega os dados da imagem
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // TENTA DETECTAR
                 const markers = detector.detect(imageData);
                 
                 if (markers && markers.length > 0) {
-                    statusDiv.innerHTML = `✅ Detectado! ID: ${markers[0].id}`;
-                    statusDiv.style.background = '#d4edda';
+                    statusDiv.innerHTML = `✅ DETECTADO! ID: ${markers[0].id}`;
+                    statusDiv.style.background = '#228B22';
                     
-                    // Desenha contorno vermelho
+                    // Desenha contorno
                     const corners = markers[0].corners;
-                    ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#FF3B30';
+                    ctx.lineWidth = 4;
                     ctx.beginPath();
                     ctx.moveTo(corners[0].x, corners[0].y);
                     for (let i = 1; i < corners.length; i++) {
@@ -77,55 +151,117 @@
                     ctx.closePath();
                     ctx.stroke();
                     
-                    // Escreve o ID
-                    ctx.fillStyle = 'red';
-                    ctx.font = 'bold 20px Arial';
+                    // Escreve ID
+                    ctx.fillStyle = '#FF3B30';
+                    ctx.font = 'bold 20px system-ui';
+                    ctx.shadowBlur = 0;
                     ctx.fillText(`ID: ${markers[0].id}`, corners[0].x, corners[0].y - 10);
                 } else {
-                    statusDiv.innerHTML = '🔍 Procurando marcador... Aponte a câmera para o marcador ArUco';
-                    statusDiv.style.background = '#e3f2fd';
+                    statusDiv.innerHTML = '🔍 Procurando marcador... Aponte a câmera';
+                    statusDiv.style.background = '#333';
                 }
-            } catch (e) {
+            } catch(e) {
                 console.error('Erro na detecção:', e);
             }
             
-            animationId = requestAnimationFrame(processFrame);
+            animationId = requestAnimationFrame(detectMarkers);
         }
         
-        // Ativa a câmera
-        async function startCamera() {
-            statusDiv.innerHTML = '⏳ Solicitando permissão da câmera...';
+        // Função para ativar a câmera (chamada pelo botão)
+        async function activateCamera() {
+            // Para qualquer câmera ativa
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+            
+            statusDiv.innerHTML = '📷 Solicitando permissão da câmera...';
+            statusDiv.style.background = '#ff8c00';
+            
+            // Configurações para máxima compatibilidade
+            const constraints = {
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: { exact: "environment" }  // Tenta câmera traseira primeiro
+                }
+            };
             
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }
-                });
+                console.log('Solicitando câmera...');
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 
                 video.srcObject = stream;
                 video.style.display = "block";
                 
+                // Aguarda o vídeo estar pronto
                 video.onloadedmetadata = () => {
                     video.play();
                     cameraActive = true;
-                    statusDiv.innerHTML = '📷 Câmera ativa! Processando...';
-                    processFrame();
+                    statusDiv.innerHTML = '📷 Câmera ATIVA! Procurando marcadores...';
+                    statusDiv.style.background = '#228B22';
+                    console.log('Câmera iniciada, dimensões:', video.videoWidth, 'x', video.videoHeight);
+                    
+                    // Inicia o loop de detecção se ainda não estiver rodando
+                    if (!animationId) {
+                        detectMarkers();
+                    }
                 };
-            } catch (err) {
-                statusDiv.innerHTML = `❌ Erro ao acessar câmera: ${err.message}`;
-                statusDiv.style.background = '#f8d7da';
-                console.error(err);
+                
+            } catch (error) {
+                console.error('Erro detalhado:', error);
+                
+                // Se falhou com câmera traseira, tenta qualquer câmera
+                if (error.name === 'OverconstrainedError' || error.message.includes('facingMode')) {
+                    statusDiv.innerHTML = '⚠️ Tentando com câmera frontal...';
+                    try {
+                        const fallbackStream = await navigator.mediaDevices.getUserMedia({
+                            video: true  // Qualquer câmera disponível
+                        });
+                        video.srcObject = fallbackStream;
+                        video.style.display = "block";
+                        video.onloadedmetadata = () => {
+                            video.play();
+                            cameraActive = true;
+                            statusDiv.innerHTML = '📷 Câmera ATIVA (frontal)! Procurando marcadores...';
+                            statusDiv.style.background = '#228B22';
+                            if (!animationId) detectMarkers();
+                        };
+                        return;
+                    } catch(e2) {
+                        console.error('Fallback também falhou:', e2);
+                    }
+                }
+                
+                // Mensagem de erro amigável
+                let errorMsg = '';
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Permissão negada. Vá em Configurações > Safari > Câmera e permita o acesso.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = 'Nenhuma câmera encontrada neste dispositivo.';
+                } else {
+                    errorMsg = `Erro: ${error.message}`;
+                }
+                
+                statusDiv.innerHTML = `❌ ${errorMsg}`;
+                statusDiv.style.background = '#8b0000';
             }
         }
         
-        btnCamera.addEventListener('click', startCamera);
+        // Botão principal
+        btnCamera.addEventListener('click', activateCamera);
         
-        // Para a câmera ao sair da página
+        // Para a câmera quando sair da página
         window.addEventListener('beforeunload', () => {
             if (video.srcObject) {
-                video.srcObject.getTracks().forEach(t => t.stop());
+                video.srcObject.getTracks().forEach(track => track.stop());
             }
-            if (animationId) cancelAnimationFrame(animationId);
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
         });
+        
+        // Log para debug
+        console.log('Página carregada. Clique no botão para ativar câmera.');
     </script>
 </body>
 </html>
