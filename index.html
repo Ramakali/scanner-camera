@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body { font-family: sans-serif; text-align:center; background:#f0f2f5; }
+video, canvas { width:90%; max-width:500px; border-radius:8px; margin-top:10px; }
+button { margin-top:15px; padding:10px 20px; font-size:16px; }
+</style>
+</head>
+
+<body>
+
+<h2>Scanner</h2>
+<div id="status">Inicializando...</div>
+
+<video id="video" autoplay playsinline muted></video>
+<button id="btn" disabled>Capturar</button>
+
+<div id="dim"></div>
+<canvas id="canvas"></canvas>
+
+<script src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+<script>
+const video = document.getElementById('video');
+const btn = document.getElementById('btn');
+const status = document.getElementById('status');
+const dim = document.getElementById('dim');
+
+// ================== OpenCV ==================
+cv['onRuntimeInitialized'] = () => {
+  status.innerText = "OpenCV pronto. Iniciando câmera...";
+  startCamera();
+};
+
+// ================== CAMERA ==================
+function startCamera() {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      video.srcObject = stream;
+    })
+    .catch(err => {
+      status.innerText = "Erro câmera: " + err.name;
+    });
+}
+
+// ================== READY ==================
+video.onloadedmetadata = () => {
+  video.play();
+
+  const t = setInterval(() => {
+    if (video.videoWidth > 0) {
+      clearInterval(t);
+      status.innerText = "Pronto";
+      btn.disabled = false;
+    }
+  }, 100);
+};
+
+// ================== CAPTURE ==================
+btn.onclick = () => {
+  let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+  let cap = new cv.VideoCapture(video);
+  cap.read(src);
+
+  processImage(src);
+};
+
+// ================== PROCESS ==================
+function processImage(src) {
+
+  let gray = new cv.Mat();
+  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+  cv.Canny(gray, gray, 50, 150);
+
+  let contours = new cv.MatVector();
+  let hierarchy = new cv.Mat();
+
+  cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+  let maxArea = 0;
+  let best = null;
+
+  for (let i = 0; i < contours.size(); i++) {
+    let cnt = contours.get(i);
+    let peri = cv.arcLength(cnt, true);
+    let approx = new cv.Mat();
+
+    cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+
+    if (approx.rows === 4) {
+      let area = cv.contourArea(approx);
+      if (area > maxArea) {
+        maxArea = area;
+        best = approx;
+      }
+    }
+  }
+
+  if (!best) {
+    alert("Objeto não encontrado");
+    return;
+  }
+
+  let pts = getSortedCorners(best);
+
+  let w = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
+  let h = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
+
+  dim.innerText = `Pixels: ${w.toFixed(0)} x ${h.toFixed(0)}`;
+
+  cleanup(src, gray, contours, hierarchy);
+}
+
+// ================== UTIL ==================
+function cleanup(...mats) {
+  mats.forEach(m => m.delete());
+}
+
+function getSortedCorners(contour) {
+  let pts = [];
+
+  for (let i = 0; i < 4; i++) {
+    pts.push({
+      x: contour.data32S[i*2],
+      y: contour.data32S[i*2+1]
+    });
+  }
+
+  pts.sort((a,b)=>a.y-b.y);
+
+  let top = pts.slice(0,2).sort((a,b)=>a.x-b.x);
+  let bottom = pts.slice(2,4).sort((a,b)=>b.x-a.x);
+
+  return [
+    top[0].x, top[0].y,
+    top[1].x, top[1].y,
+    bottom[0].x, bottom[0].y,
+    bottom[1].x, bottom[1].y
+  ];
+}
+</script>
+
+</body>
+</html>
