@@ -11,25 +11,6 @@ body {
   background: #f0f2f5;
 }
 
-.tabs {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
-}
-
-.tab {
-  padding: 10px 20px;
-  cursor: pointer;
-  background: #ddd;
-  margin: 2px;
-  border-radius: 5px;
-}
-
-.active {
-  background: #4285f4;
-  color: white;
-}
-
 video, canvas {
   width: 90%;
   max-width: 500px;
@@ -48,64 +29,57 @@ button {
 
 <h2>Scanner com ArUco</h2>
 
-<div class="tabs">
-  <div class="tab active" onclick="setTab(event,'scanner')">Scanner</div>
-  <div class="tab" onclick="setTab(event,'tools')">Tools</div>
-</div>
-
 <div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas"></canvas>
 
-<button id="btn">Capturar Medida</button>
+<button id="btn">Capturar</button>
 <div id="dim"></div>
 
-<script async src="https://cdn.jsdelivr.net/gh/TechStark/opencv-js@latest/opencv.js"></script>
+<!-- OpenCV com WASM -->
+<script async src="https://docs.opencv.org/4.10.0/opencv.js"></script>
 
 <script>
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-const btn = document.getElementById('btn');
 const status = document.getElementById('status');
-const dim = document.getElementById('dim');
 
-let mode = "scanner";
-let latestMeasurement = null;
+let detector, dictionary, parameters;
+let src, corners, ids;
 
-let detector = null;
+let initialized = false;
 
-// ================= TAB =================
-function setTab(e, tab) {
-  mode = tab;
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  e.target.classList.add('active');
-}
-
-// ================= OpenCV =================
+// ================= INIT =================
 cv['onRuntimeInitialized'] = () => {
 
-  if (cv.ArucoDetector) {
+  try {
 
-    let dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
-    let parameters = new cv.DetectorParameters();
-
+    // 🔒 Inicializa UMA VEZ
+    dictionary = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+    parameters = new cv.DetectorParameters();
     detector = new cv.ArucoDetector(dictionary, parameters);
+
+    corners = new cv.MatVector();
+    ids = new cv.Mat();
 
     status.innerText = "OpenCV + ArUco OK";
 
-  } else {
+    initialized = true;
 
-    status.innerText = "ERRO: OpenCV sem ArUco";
+    startCamera();
+
+  } catch (e) {
+    status.innerText = "Erro ao iniciar ArUco: " + e;
+    console.error(e);
   }
-
-  startCamera();
 };
 
 // ================= CAMERA =================
 async function startCamera() {
+
   try {
     let stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } }
@@ -115,15 +89,19 @@ async function startCamera() {
     let stream = await navigator.mediaDevices.getUserMedia({ video: true });
     video.srcObject = stream;
   }
+
+  video.addEventListener("playing", () => {
+    requestAnimationFrame(processFrame);
+  });
 }
 
 // ================= LOOP =================
-video.addEventListener("playing", () => {
-  requestAnimationFrame(processFrame);
-});
-
-// ================= FRAME =================
 function processFrame() {
+
+  if (!initialized || video.paused || video.ended) {
+    requestAnimationFrame(processFrame);
+    return;
+  }
 
   try {
 
@@ -137,56 +115,44 @@ function processFrame() {
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    let src = cv.imread(canvas);
+    // 🔥 captura imagem
+    let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    src = cv.matFromImageData(imgData);
 
-    let corners = new cv.MatVector();
-    let ids = new cv.Mat();
+    // 🔍 DETECÇÃO ARUCO
+    detector.detectMarkers(src, corners, ids);
 
-    // ===== ARUCO =====
-    if (detector) {
+    if (ids.rows > 0) {
 
-      detector.detectMarkers(src, corners, ids);
+      cv.drawDetectedMarkers(src, corners, ids);
 
-      if (ids.rows > 0) {
-
-        cv.drawDetectedMarkers(src, corners, ids);
-
-        let arr = [];
-        for (let i = 0; i < ids.rows; i++) {
-          arr.push(ids.data32S[i]);
-        }
-
-        status.innerText = "ArUco: " + arr.join(",");
-
-      } else {
-        status.innerText = "Sem ArUco";
+      let lista = [];
+      for (let i = 0; i < ids.rows; i++) {
+        lista.push(ids.data32S[i]);
       }
 
+      status.innerText = "IDs: " + lista.join(", ");
+
+    } else {
+      status.innerText = "Buscando ArUco...";
     }
 
     cv.imshow('canvas', src);
 
+    // 🔒 LIMPEZA DO FRAME
     src.delete();
-    corners.delete();
-    ids.delete();
 
   } catch (err) {
-
-    console.error(err);
+    console.error("Erro:", err);
     status.innerText = "Erro: " + err;
-
   }
 
   requestAnimationFrame(processFrame);
 }
 
 // ================= CAPTURE =================
-btn.onclick = () => {
-  if (latestMeasurement) {
-    dim.innerText = `Capturado: ${latestMeasurement.wMm} x ${latestMeasurement.hMm}`;
-  } else {
-    alert("Nenhuma medida disponível ainda");
-  }
+document.getElementById('btn').onclick = () => {
+  alert("Captura ainda não integrada com medição");
 };
 </script>
 
