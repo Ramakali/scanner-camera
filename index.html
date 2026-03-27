@@ -65,8 +65,6 @@ video.onloadedmetadata = () => {
 function processFrame() {
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "red";
-  ctx.fillRect(10, 10, 20, 20);
 
   let src = cv.imread(canvas);
 
@@ -78,77 +76,74 @@ function processFrame() {
 
   if (ids.rows > 0) {
 
-    // desenha ArUco
+    status.innerText = "ArUco detectado";
+
     cv.drawDetectedMarkers(src, corners, ids);
 
-    let index = -1;
-    for (let i = 0; i < ids.rows; i++) {
-        index = 0;
-        break;
-      }
-    }
+    let index = 0; // pega o primeiro automaticamente
 
-    if (index !== -1) {
+    let marker = corners.get(index).data32F;
+    let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
+    let ppm = sidePx / 60;
 
-      let marker = corners.get(index).data32F;
-      let sidePx = Math.hypot(marker[0]-marker[2], marker[1]-marker[3]);
-      let ppm = sidePx / 60;
+    let gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
+    cv.Canny(gray, gray, 30, 100);
 
-      let gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      cv.Canny(gray, gray, 50, 150);
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
 
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
+    cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    let maxArea = 0;
+    let best = null;
 
-      let maxArea = 0;
-      let best = null;
+    for (let i = 0; i < contours.size(); i++) {
+      let cnt = contours.get(i);
+      let peri = cv.arcLength(cnt, true);
+      let approx = new cv.Mat();
 
-      for (let i = 0; i < contours.size(); i++) {
-        let cnt = contours.get(i);
-        let peri = cv.arcLength(cnt, true);
-        let approx = new cv.Mat();
+      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
 
-        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-
-        if (approx.rows === 4) {
-          let area = cv.contourArea(approx);
-          if (area > maxArea) {
-            maxArea = area;
-            best = approx;
-          }
+      if (approx.rows === 4) {
+        let area = cv.contourArea(approx);
+        if (area > maxArea) {
+          maxArea = area;
+          best = approx;
         }
       }
-
-      if (best) {
-
-        status.innerText = "Quadro detectado";
-
-        // desenha contorno
-        cv.drawContours(src, new cv.MatVector(best), -1, [255,0,0,255], 3);
-
-        let pts = getSortedCorners(best);
-
-        let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
-        let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
-
-        let wMm = (wPx / ppm).toFixed(0);
-        let hMm = (hPx / ppm).toFixed(0);
-
-        latestMeasurement = { wMm, hMm };
-
-        dim.innerText = `Ao vivo: ${wMm} mm x ${hMm} mm`;
-        status.innerText = "Detectando...";
-      }
     }
+
+    if (best) {
+
+      let contourVec = new cv.MatVector();
+      contourVec.push_back(best);
+
+      cv.drawContours(src, contourVec, -1, [255,0,0,255], 3);
+
+      let pts = getSortedCorners(best);
+
+      let wPx = Math.hypot(pts[0]-pts[2], pts[1]-pts[3]);
+      let hPx = Math.hypot(pts[0]-pts[6], pts[1]-pts[7]);
+
+      let wMm = (wPx / ppm).toFixed(0);
+      let hMm = (hPx / ppm).toFixed(0);
+
+      latestMeasurement = { wMm, hMm };
+
+      dim.innerText = `Ao vivo: ${wMm} mm x ${hMm} mm`;
+      status.innerText = "Detectando quadro";
+
+      contourVec.delete();
+    }
+
+    gray.delete();
+    contours.delete();
+    hierarchy.delete();
+
   } else {
-    if (ids.rows > 0) {
-      status.innerText = "ArUco detectado";
-    } else {
-      status.innerText = "Aguardando ArUco...";
-    }
+    status.innerText = "Aguardando ArUco...";
   }
 
   cv.imshow(canvas, src);
@@ -158,8 +153,8 @@ function processFrame() {
   ids.delete();
 
   requestAnimationFrame(processFrame);
-}
-
+};
+  
 // ================== CAPTURE ==================
 btn.onclick = () => {
   if (latestMeasurement) {
