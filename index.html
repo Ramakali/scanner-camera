@@ -1,193 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco 4x4 - Detector Direto</title>
+    <title>ArUco 4x4</title>
+    <script src="aruco.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {
-            font-family: system-ui, sans-serif;
-            margin: 0;
-            padding: 16px;
-            background: #000;
-            color: white;
-            text-align: center;
-        }
-        video, canvas {
-            width: 100%;
-            max-width: 640px;
-            border-radius: 12px;
-            margin: 8px auto;
-            display: block;
-            background: #111;
-        }
-        button {
-            background: #007aff;
-            color: white;
-            border: none;
-            padding: 14px 28px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 40px;
-            margin: 16px;
-            cursor: pointer;
-        }
-        .status {
-            background: #222;
-            padding: 12px;
-            border-radius: 12px;
-            margin: 12px;
-            font-family: monospace;
-            font-size: 14px;
-        }
+        body { font-family: system-ui; margin: 0; padding: 16px; background: #000; color: white; text-align: center; }
+        video, canvas { width: 100%; max-width: 640px; border-radius: 12px; margin: 8px auto; display: block; background: #111; }
+        button { background: #007aff; color: white; border: none; padding: 14px 28px; font-size: 18px; border-radius: 40px; margin: 16px; cursor: pointer; }
+        .status { background: #222; padding: 12px; border-radius: 12px; margin: 12px; font-family: monospace; }
         .detected { background: #1a472a; color: #7fff7f; }
     </style>
 </head>
 <body>
-    <h2>🎯 Detector 4x4 - Código do seu arquivo</h2>
+    <h2>🎯 ArUco 4x4</h2>
     <button id="btnCamera">📷 ATIVAR CÂMERA</button>
-    
     <video id="video" autoplay playsinline muted style="display: none;"></video>
     <canvas id="canvas"></canvas>
-    
-    <div class="status" id="status">⏳ Aguardando...</div>
+    <div class="status" id="status">⏳ Carregando aruco.js...</div>
 
     <script>
-        // ==========================================
-        // DICIONÁRIO 4x4 DO SEU ARQUIVO
-        // Código do ID 1: bytes [15, 154] = 0x9A0F
-        // ==========================================
-        
-        // Código do marcador ID 1 extraído do seu arquivo
-        const ID_1_CODE = 0x9A0F;  // bytes [15, 154]
-        
-        // Função para extrair os bits do marcador a partir dos cantos
-        function extractBits(imageData, corners, markerSize = 4) {
-            const width = imageData.width;
-            const height = imageData.height;
-            const data = imageData.data;
-            
-            // Calcula o tamanho do marcador em pixels
-            const side = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
-            const cellSize = side / (markerSize + 2); // +2 para a borda preta
-            
-            if (cellSize < 6) return null; // Marcador muito pequeno
-            
-            const bits = [];
-            
-            // Percorre as células internas (ignorando a borda)
-            for (let row = 1; row <= markerSize; row++) {
-                for (let col = 1; col <= markerSize; col++) {
-                    // Ponto central da célula
-                    const x = corners[0].x + (col + 0.5) * cellSize;
-                    const y = corners[0].y + (row + 0.5) * cellSize;
-                    
-                    if (x >= 0 && x < width && y >= 0 && y < height) {
-                        const idx = (Math.floor(y) * width + Math.floor(x)) * 4;
-                        const brightness = (data[idx] + data[idx+1] + data[idx+2]) / 3;
-                        // Preto = 0, Branco = 1 (assumindo que o marcador tem borda preta)
-                        bits.push(brightness < 128 ? 1 : 0);
-                    } else {
-                        bits.push(0);
-                    }
-                }
-            }
-            
-            return bits;
-        }
-        
-        // Converte bits para número
-        function bitsToNumber(bits) {
-            let num = 0;
-            for (let i = 0; i < bits.length; i++) {
-                if (bits[i]) num |= (1 << (bits.length - 1 - i));
-            }
-            return num;
-        }
-        
-        // Detecta contornos de quadrados na imagem (simplificado)
-        // Esta é uma versão simplificada - para detecção real, precisaríamos de um algoritmo robusto
-        function findSquares(imageData) {
-            // Por enquanto, retorna vazio
-            // Uma implementação completa exigiria detecção de contornos e aproximação de polígonos
-            return [];
-        }
-        
-        // ==========================================
-        // CÂMERA E LOOP PRINCIPAL
-        // ==========================================
-        
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const statusDiv = document.getElementById('status');
-        const btnCamera = document.getElementById('btnCamera');
-        
-        canvas.width = 640;
-        canvas.height = 480;
-        
-        let cameraAtiva = false;
-        let animationId = null;
-        
-        // Função de detecção simplificada
-        // NOTA: Esta é uma versão básica. Para detecção real, é necessário um algoritmo
-        // de detecção de quadrados. Como o js-aruco2 não está carregando, esta é uma alternativa.
-        
-        function detectar() {
-            if (!cameraAtiva || !video.videoWidth) {
-                if (cameraAtiva) {
-                    animationId = requestAnimationFrame(detectar);
-                }
+        function iniciar() {
+            if (typeof ARUCO === 'undefined') {
+                document.getElementById('status').innerHTML = '❌ aruco.js não carregou. Verifique o arquivo.';
                 return;
             }
             
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const statusDiv = document.getElementById('status');
+            const btnCamera = document.getElementById('btnCamera');
             
-            // Exibe mensagem informativa
-            statusDiv.innerHTML = '⚠️ Detector simplificado ativo.\n\nPara detectar seu marcador 4x4, precisamos da biblioteca aruco.js.\n\nClique no link abaixo para baixar:\n\nhttps://github.com/AR-js-org/aruco-js\n\nBaixe o ZIP, extraia e copie o arquivo aruco.js para a mesma pasta.';
-            statusDiv.style.background = '#ff8c00';
-            statusDiv.style.color = '#000';
+            canvas.width = 640;
+            canvas.height = 480;
             
-            animationId = requestAnimationFrame(detectar);
-        }
-        
-        async function ativarCamera() {
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(t => t.stop());
-            }
-            
-            statusDiv.innerHTML = '📷 Solicitando permissão da câmera...';
-            statusDiv.style.background = '#222';
-            statusDiv.style.color = 'white';
+            let detector = null;
+            let cameraAtiva = false;
             
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "environment" } }
-                });
-                
-                video.srcObject = stream;
-                video.style.display = "block";
-                
-                video.onloadedmetadata = () => {
-                    video.play();
-                    cameraAtiva = true;
-                    statusDiv.innerHTML = '📷 Câmera ativa! Aguardando...';
-                    detectar();
-                };
-            } catch(err) {
-                let msg = err.name === 'NotAllowedError' 
-                    ? 'Permissão negada. Vá em Configurações e permita a câmera.' 
-                    : err.message;
-                statusDiv.innerHTML = `❌ ${msg}`;
-                statusDiv.style.background = '#8b0000';
+                const dict = new ARUCO.Dictionary(ARUCO.DICT_4X4_1000);
+                detector = new ARUCO.Detector(dict);
+                statusDiv.innerHTML = '✅ Pronto. Clique em ATIVAR CÂMERA';
+            } catch(e) {
+                statusDiv.innerHTML = '❌ Erro: ' + e.message;
+                return;
             }
+            
+            function detectar() {
+                if (!cameraAtiva || !video.videoWidth) {
+                    requestAnimationFrame(detectar);
+                    return;
+                }
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const markers = detector.detect(imageData);
+                
+                if (markers && markers.length > 0) {
+                    statusDiv.innerHTML = '✅✅✅ DETECTADO! ID: ' + markers[0].id;
+                    statusDiv.className = 'status detected';
+                    
+                    const corners = markers[0].corners;
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(corners[0].x, corners[0].y);
+                    for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].x, corners[i].y);
+                    ctx.closePath();
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = 'bold 22px system-ui';
+                    ctx.fillText('ID: ' + markers[0].id, corners[0].x, corners[0].y - 10);
+                } else {
+                    statusDiv.innerHTML = '🔍 Procurando marcador 4x4 ID 1...';
+                    statusDiv.className = 'status';
+                }
+                
+                requestAnimationFrame(detectar);
+            }
+            
+            async function ativarCamera() {
+                if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+                statusDiv.innerHTML = '📷 Solicitando câmera...';
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                    video.srcObject = stream;
+                    video.style.display = "block";
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        cameraAtiva = true;
+                        detectar();
+                    };
+                } catch(err) {
+                    statusDiv.innerHTML = '❌ Erro câmera: ' + err.message;
+                }
+            }
+            
+            btnCamera.addEventListener('click', ativarCamera);
         }
         
-        btnCamera.addEventListener('click', ativarCamera);
-        
-        window.addEventListener('beforeunload', () => {
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            if (animationId) cancelAnimationFrame(animationId);
-        });
+        // Aguarda o aruco.js carregar
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', iniciar);
+        } else {
+            iniciar();
+        }
     </script>
 </body>
 </html>
