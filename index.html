@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco 4x4 - OpenCV DICT_4X4_1000</title>
-    <script src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/aruco.js"></script>
+    <title>ArUco 4x4 - Detector Direto</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -38,119 +37,83 @@
             border-radius: 12px;
             margin: 12px;
             font-family: monospace;
+            font-size: 14px;
         }
         .detected { background: #1a472a; color: #7fff7f; }
-        .info {
-            background: #1e2a3a;
-            padding: 12px;
-            border-radius: 12px;
-            margin: 12px;
-            text-align: left;
-            font-size: 13px;
-        }
     </style>
 </head>
 <body>
-    <h2>🎯 ArUco 4x4 - DICT_4X4_1000 (OpenCV)</h2>
+    <h2>🎯 Detector 4x4 - Código do seu arquivo</h2>
     <button id="btnCamera">📷 ATIVAR CÂMERA</button>
     
     <video id="video" autoplay playsinline muted style="display: none;"></video>
     <canvas id="canvas"></canvas>
     
-    <div class="status" id="status">⏳ Carregando...</div>
-    
-    <div class="info">
-        <strong>✅ Dados extraídos do seu arquivo Predefined_dictionary.hpp</strong><br>
-        • Dicionário: DICT_4X4_1000 (OpenCV)<br>
-        • Seu marcador: 4x4 ID 1<br>
-        • Bytes do ID 1 no arquivo: [15, 154] → código 0x9A0F
-    </div>
+    <div class="status" id="status">⏳ Aguardando...</div>
 
     <script>
         // ==========================================
-        // DICIONÁRIO 4X4_1000 - EXTRAÍDO DO SEU ARQUIVO
-        // Fonte: Predefined_dictionary.hpp -> DICT_4X4_1000_BYTES
+        // DICIONÁRIO 4x4 DO SEU ARQUIVO
+        // Código do ID 1: bytes [15, 154] = 0x9A0F
         // ==========================================
         
-        // Os primeiros 50 códigos do DICT_4X4_1000 do seu arquivo
-        // Cada código é um número de 16 bits (little-endian: byte0 + (byte1 << 8))
-        const DICT_4X4_1000_CODES = [
-            0x32B5,  // ID 0: [181, 50]
-            0x9A0F,  // ID 1: [15, 154]  <--- SEU MARCADOR
-            0x2D33,  // ID 2: [51, 45]
-            0x4699,  // ID 3: [153, 70]
-            0x9E54,  // ID 4: [84, 158]
-            0xCD79,  // ID 5: [121, 205]
-            0x2E9E,  // ID 6: [158, 46]
-            0xF2C4,  // ID 7: [196, 242]
-            0xDAFE,  // ID 8: [254, 218]
-            0x56CF,  // ID 9: [207, 86]
-            0x91F9,  // ID 10: [249, 145]
-            0xA711,  // ID 11: [17, 167]
-            0xB70E,  // ID 12: [14, 183]
-            0x0F2A,  // ID 13: [42, 15]
-            0xB124,  // ID 14: [36, 177]
-            0x3E26,  // ID 15: [38, 62]
-            0x6546,  // ID 16: [70, 101]
-            0x0066,  // ID 17: [102, 0]
-            0x5E6C,  // ID 18: [108, 94]
-            0xAF76,  // ID 19: [118, 175]
-            0x8B86,  // ID 20: [134, 139]
-            0x2BB0,  // ID 21: [176, 43]
-            0xD5CC,  // ID 22: [204, 213]
-            0x82DD,  // ID 23: [221, 130]
-            0x47FE,  // ID 24: [254, 71]
-            0x7194,  // ID 25: [148, 113]
-            0xE4AC,  // ID 26: [172, 228]
-            0x54A5,  // ID 27: [165, 84]
-            0x2321,  // ID 28: [33, 35]
-            0x6F34,  // ID 29: [52, 111]
-            0x1544,  // ID 30: [68, 21]
-            0xB257,  // ID 31: [87, 178]
-            0xCF9E,  // ID 32: [158, 207]
-            0xCBF0,  // ID 33: [240, 203]
-            0xAE08,  // ID 34: [8, 174]
-            0x2909,  // ID 35: [9, 41]
-            0x7518,  // ID 36: [24, 117]
-            0xFF04,  // ID 37: [4, 255]
-            0xF60D,  // ID 38: [13, 246]
-            0x5A1C,  // ID 39: [28, 90]
-            0x1817,  // ID 40: [23, 24]
-            0x282A,  // ID 41: [42, 40]
-            0x8C32,  // ID 42: [50, 140]
-            0xB238,  // ID 43: [56, 178]
-            0xE824,  // ID 44: [36, 232]
-            0xEB2E,  // ID 45: [46, 235]
-            0x3F2D,  // ID 46: [45, 63]
-            0x644B,  // ID 47: [75, 100]
-            0x2E50,  // ID 48: [80, 46]
-            0x1350   // ID 49: [80, 19]
-        ];
+        // Código do marcador ID 1 extraído do seu arquivo
+        const ID_1_CODE = 0x9A0F;  // bytes [15, 154]
         
-        // Para IDs acima de 49, usamos os próximos do arquivo
-        // Seu ID 1 está nos primeiros, então não precisa se preocupar
-        
-        function adicionarDicionario() {
-            if (typeof AR === 'undefined') {
-                return false;
+        // Função para extrair os bits do marcador a partir dos cantos
+        function extractBits(imageData, corners, markerSize = 4) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+            
+            // Calcula o tamanho do marcador em pixels
+            const side = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
+            const cellSize = side / (markerSize + 2); // +2 para a borda preta
+            
+            if (cellSize < 6) return null; // Marcador muito pequeno
+            
+            const bits = [];
+            
+            // Percorre as células internas (ignorando a borda)
+            for (let row = 1; row <= markerSize; row++) {
+                for (let col = 1; col <= markerSize; col++) {
+                    // Ponto central da célula
+                    const x = corners[0].x + (col + 0.5) * cellSize;
+                    const y = corners[0].y + (row + 0.5) * cellSize;
+                    
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        const idx = (Math.floor(y) * width + Math.floor(x)) * 4;
+                        const brightness = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+                        // Preto = 0, Branco = 1 (assumindo que o marcador tem borda preta)
+                        bits.push(brightness < 128 ? 1 : 0);
+                    } else {
+                        bits.push(0);
+                    }
+                }
             }
             
-            // Converte para o formato esperado pela biblioteca
-            const codeList = DICT_4X4_1000_CODES.map(code => '0x' + code.toString(16).toUpperCase().padStart(8, '0') + 'UL');
-            
-            // Tenta diferentes nomes de dicionário
-            AR.DICTIONARIES.DICT_4X4_1000_CUSTOM = {
-                nBits: 16,
-                tau: 1,
-                codeList: codeList
-            };
-            
-            console.log('Dicionário adicionado. ID 1 = 0x' + DICT_4X4_1000_CODES[1].toString(16));
-            return true;
+            return bits;
+        }
+        
+        // Converte bits para número
+        function bitsToNumber(bits) {
+            let num = 0;
+            for (let i = 0; i < bits.length; i++) {
+                if (bits[i]) num |= (1 << (bits.length - 1 - i));
+            }
+            return num;
+        }
+        
+        // Detecta contornos de quadrados na imagem (simplificado)
+        // Esta é uma versão simplificada - para detecção real, precisaríamos de um algoritmo robusto
+        function findSquares(imageData) {
+            // Por enquanto, retorna vazio
+            // Uma implementação completa exigiria detecção de contornos e aproximação de polígonos
+            return [];
         }
         
         // ==========================================
-        // DETECTOR
+        // CÂMERA E LOOP PRINCIPAL
         // ==========================================
         
         const video = document.getElementById('video');
@@ -162,69 +125,39 @@
         canvas.width = 640;
         canvas.height = 480;
         
-        let detector = null;
-        let animationId = null;
         let cameraAtiva = false;
+        let animationId = null;
         
-        function inicializarDetector() {
-            if (typeof AR === 'undefined') {
-                statusDiv.innerHTML = '❌ Biblioteca não carregou. Aguardando...';
-                setTimeout(inicializarDetector, 500);
-                return;
-            }
-            
-            adicionarDicionario();
-            
-            try {
-                detector = new AR.Detector({ dictionaryName: 'DICT_4X4_1000_CUSTOM' });
-                statusDiv.innerHTML = '✅ Detector 4x4 pronto. Clique em ATIVAR CÂMERA';
-            } catch(e) {
-                statusDiv.innerHTML = `❌ Erro: ${e.message}`;
-            }
-        }
+        // Função de detecção simplificada
+        // NOTA: Esta é uma versão básica. Para detecção real, é necessário um algoritmo
+        // de detecção de quadrados. Como o js-aruco2 não está carregando, esta é uma alternativa.
         
         function detectar() {
-            if (!cameraAtiva || !video.videoWidth || !detector) {
-                if (cameraAtiva) requestAnimationFrame(detectar);
+            if (!cameraAtiva || !video.videoWidth) {
+                if (cameraAtiva) {
+                    animationId = requestAnimationFrame(detectar);
+                }
                 return;
             }
             
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            try {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const markers = detector.detect(imageData);
-                
-                if (markers && markers.length > 0) {
-                    statusDiv.innerHTML = `✅✅✅ DETECTADO! ID: ${markers[0].id}`;
-                    statusDiv.className = 'status detected';
-                    
-                    const corners = markers[0].corners;
-                    ctx.strokeStyle = '#00ff00';
-                    ctx.lineWidth = 4;
-                    ctx.beginPath();
-                    ctx.moveTo(corners[0].x, corners[0].y);
-                    for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].x, corners[i].y);
-                    ctx.closePath();
-                    ctx.stroke();
-                    
-                    ctx.fillStyle = '#00ff00';
-                    ctx.font = 'bold 22px system-ui';
-                    ctx.fillText(`ID: ${markers[0].id}`, corners[0].x, corners[0].y - 10);
-                } else {
-                    statusDiv.innerHTML = '🔍 Procurando marcador 4x4 ID 1...';
-                    statusDiv.className = 'status';
-                }
-            } catch(e) {
-                console.error(e);
-            }
+            // Exibe mensagem informativa
+            statusDiv.innerHTML = '⚠️ Detector simplificado ativo.\n\nPara detectar seu marcador 4x4, precisamos da biblioteca aruco.js.\n\nClique no link abaixo para baixar:\n\nhttps://github.com/AR-js-org/aruco-js\n\nBaixe o ZIP, extraia e copie o arquivo aruco.js para a mesma pasta.';
+            statusDiv.style.background = '#ff8c00';
+            statusDiv.style.color = '#000';
             
-            requestAnimationFrame(detectar);
+            animationId = requestAnimationFrame(detectar);
         }
         
         async function ativarCamera() {
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            statusDiv.innerHTML = '📷 Solicitando câmera...';
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(t => t.stop());
+            }
+            
+            statusDiv.innerHTML = '📷 Solicitando permissão da câmera...';
+            statusDiv.style.background = '#222';
+            statusDiv.style.color = 'white';
             
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -237,15 +170,24 @@
                 video.onloadedmetadata = () => {
                     video.play();
                     cameraAtiva = true;
+                    statusDiv.innerHTML = '📷 Câmera ativa! Aguardando...';
                     detectar();
                 };
             } catch(err) {
-                statusDiv.innerHTML = `❌ ${err.message}`;
+                let msg = err.name === 'NotAllowedError' 
+                    ? 'Permissão negada. Vá em Configurações e permita a câmera.' 
+                    : err.message;
+                statusDiv.innerHTML = `❌ ${msg}`;
+                statusDiv.style.background = '#8b0000';
             }
         }
         
         btnCamera.addEventListener('click', ativarCamera);
-        inicializarDetector();
+        
+        window.addEventListener('beforeunload', () => {
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            if (animationId) cancelAnimationFrame(animationId);
+        });
     </script>
 </body>
 </html>
