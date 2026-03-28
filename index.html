@@ -1,28 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco 4x4 - Funcional</title>
-    <script src="aruco.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ArUco 4x4 - Versão Funcional</title>
+    <!-- Biblioteca CORRETA para ArUco 4x4 -->
+    <script src="https://cdn.jsdelivr.net/npm/aruco-js@0.3.0/aruco.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: system-ui, sans-serif;
+            margin: 0;
+            padding: 16px;
             background: #000;
             color: white;
             text-align: center;
-            padding: 16px;
         }
         video, canvas {
             width: 100%;
             max-width: 640px;
-            height: auto;
             border-radius: 12px;
-            margin: 10px auto;
+            margin: 8px auto;
             display: block;
             background: #111;
         }
@@ -34,63 +30,43 @@
             font-size: 18px;
             font-weight: bold;
             border-radius: 40px;
-            margin: 10px;
+            margin: 16px;
             cursor: pointer;
-            width: 80%;
-            max-width: 280px;
         }
-        button:active {
-            transform: scale(0.97);
-            background: #0051d5;
-        }
-        #status {
+        button:active { transform: scale(0.97); }
+        .status {
             background: #222;
             padding: 12px;
             border-radius: 12px;
             margin: 12px;
-            font-size: 14px;
             font-family: monospace;
-            word-break: break-word;
         }
-        .info {
-            background: #1e2a3a;
-            padding: 12px;
-            border-radius: 12px;
-            margin: 12px;
-            text-align: left;
-            font-size: 13px;
-        }
-        h2 {
-            margin: 10px 0;
-            font-size: 20px;
-        }
+        .detected { background: #1a472a; color: #7fff7f; }
+        .info { background: #1e2a3a; padding: 12px; border-radius: 12px; margin: 12px; text-align: left; font-size: 13px; }
     </style>
 </head>
 <body>
     <h2>🎯 Detector ArUco 4x4</h2>
-    
     <button id="btnCamera">📷 ATIVAR CÂMERA</button>
     
     <video id="video" autoplay playsinline muted style="display: none;"></video>
     <canvas id="canvas"></canvas>
     
-    <div id="status">⚠️ Clique no botão para ativar a câmera</div>
+    <div class="status" id="status">⚠️ Clique no botão para ativar a câmera</div>
     
     <div class="info">
-        💡 Seu marcador 4x4 ID 1 será detectado<br>
-        🔄 Aproxime bem o marcador da câmera<br>
-        🟢 Contorno verde = detectado
+        ✅ Agora usando biblioteca com suporte nativo a marcadores 4x4<br>
+        📌 Seu marcador ID 1 será detectado<br>
+        🟢 Contorno verde = sucesso
     </div>
 
     <script>
-        // Elementos
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const statusDiv = document.getElementById('status');
         const btnCamera = document.getElementById('btnCamera');
         
-        // Configurações
         canvas.width = 640;
         canvas.height = 480;
         
@@ -98,98 +74,47 @@
         let animationId = null;
         let cameraAtiva = false;
         
-        // ==========================================
-        // DICIONÁRIO 4x4 SIMPLIFICADO
-        // ==========================================
-        // Baseado no padrão OpenCV ArUco 4x4
-        // Suporta IDs de 0 a 999
-        // ==========================================
-        
-        // Função que gera os códigos para marcadores 4x4
-        function gerarCodigos4x4(quantidade) {
-            const codigos = [];
-            
-            // Tabela de códigos para 4x4 baseada no OpenCV
-            // Esses são os primeiros códigos do padrão DICT_4X4_1000
-            const tabelaOpenCV = [
-                0x00000001, 0x00000002, 0x00000004, 0x00000008,
-                0x00000010, 0x00000020, 0x00000040, 0x00000080,
-                0x00000100, 0x00000200, 0x00000400, 0x00000800,
-                0x00001000, 0x00002000, 0x00004000, 0x00008000,
-                0x00010000, 0x00020000, 0x00040000, 0x00080000
-            ];
-            
-            for (let i = 0; i < quantidade; i++) {
-                if (i < tabelaOpenCV.length) {
-                    codigos.push('0x' + tabelaOpenCV[i].toString(16).toUpperCase() + 'UL');
-                } else {
-                    // Fallback: gera código baseado no ID
-                    let code = i * 0x9E3779B9;
-                    code = (code ^ (code >> 16)) & 0xFFFF;
-                    codigos.push('0x' + code.toString(16).toUpperCase().padStart(8, '0') + 'UL');
+        // Aguarda a biblioteca carregar
+        function inicializarDetector() {
+            return new Promise((resolve, reject) => {
+                // Verifica se a biblioteca carregou
+                if (typeof ARUCO === 'undefined' && typeof ArUco === 'undefined') {
+                    reject('Biblioteca ArUco não carregou');
+                    return;
                 }
-            }
-            return codigos;
-        }
-        
-        // Cria o dicionário 4x4
-        try {
-            AR.DICTIONARIES.DICT_4X4_CUSTOM = {
-                nBits: 16,      // 4x4 = 16 bits internos
-                tau: 1,         // tolerância a erros
-                codeList: gerarCodigos4x4(1000)  // IDs 0-999
-            };
-            console.log('Dicionário 4x4 criado com sucesso');
-            statusDiv.innerHTML = '✅ Dicionário 4x4 carregado! Clique no botão da câmera.';
-        } catch(e) {
-            console.error('Erro ao criar dicionário:', e);
-            statusDiv.innerHTML = '❌ Erro ao carregar dicionário 4x4';
-        }
-        
-        // Cria o detector com o dicionário 4x4
-        function iniciarDetector() {
-            try {
-                if (typeof AR !== 'undefined') {
-                    detector = new AR.Detector({
-                        dictionaryName: 'DICT_4X4_CUSTOM'
-                    });
-                    console.log('Detector 4x4 iniciado');
-                    return true;
-                } else {
-                    statusDiv.innerHTML = '❌ Biblioteca aruco.js não encontrada';
-                    return false;
+                
+                try {
+                    // Cria o detector com suporte a 4x4
+                    // O aruco-js suporta DICT_4X4_50, DICT_4X4_100, DICT_4X4_250, DICT_4X4_1000
+                    const dict = new ARUCO.Dictionary(ARUCO.DICT_4X4_1000);
+                    detector = new ARUCO.Detector(dict);
+                    console.log('Detector 4x4 criado');
+                    resolve(true);
+                } catch(e) {
+                    console.error('Erro:', e);
+                    reject(e.message);
                 }
-            } catch(e) {
-                console.error('Erro detector:', e);
-                statusDiv.innerHTML = '❌ Erro ao iniciar detector: ' + e.message;
-                return false;
-            }
+            });
         }
         
         // Loop de detecção
-        function loopDetecao() {
+        function detectar() {
             if (!cameraAtiva || !video.videoWidth || !detector) {
-                if (cameraAtiva) {
-                    animationId = requestAnimationFrame(loopDetecao);
-                }
+                animationId = requestAnimationFrame(detectar);
                 return;
             }
             
-            // Desenha o vídeo no canvas
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             try {
-                // Pega os pixels
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
                 // Detecta marcadores
                 const markers = detector.detect(imageData);
                 
                 if (markers && markers.length > 0) {
-                    // Achou!
-                    statusDiv.innerHTML = `✅✅✅ MARCADOR ENCONTRADO! ID: ${markers[0].id} ✅✅✅`;
-                    statusDiv.style.background = '#1a472a';
-                    statusDiv.style.color = '#7fff7f';
+                    statusDiv.innerHTML = `✅✅✅ MARCADOR 4x4 DETECTADO! ID: ${markers[0].id} ✅✅✅`;
+                    statusDiv.className = 'status detected';
                     
                     // Desenha contorno verde
                     const corners = markers[0].corners;
@@ -203,95 +128,66 @@
                     ctx.closePath();
                     ctx.stroke();
                     
-                    // Escreve o ID
                     ctx.fillStyle = '#00ff00';
                     ctx.font = 'bold 22px system-ui';
                     ctx.fillText(`ID: ${markers[0].id}`, corners[0].x, corners[0].y - 10);
                 } else {
-                    statusDiv.innerHTML = '🔍 Procurando marcador 4x4... Aproxime da câmera';
-                    statusDiv.style.background = '#222';
-                    statusDiv.style.color = '#ccc';
+                    statusDiv.innerHTML = '🔍 Procurando marcador 4x4... Aponte seu ID 1 para a câmera';
+                    statusDiv.className = 'status';
                 }
             } catch(e) {
-                console.error('Erro na detecção:', e);
+                console.error('Erro detecção:', e);
             }
             
-            animationId = requestAnimationFrame(loopDetecao);
+            animationId = requestAnimationFrame(detectar);
         }
         
         // Ativar câmera
         async function ativarCamera() {
-            // Para streams existentes
             if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject.getTracks().forEach(t => t.stop());
             }
             
-            statusDiv.innerHTML = '📷 Solicitando permissão da câmera...';
-            statusDiv.style.background = '#ff8c00';
+            statusDiv.innerHTML = '📷 Solicitando permissão...';
             
             try {
-                // Configuração simples e compatível
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    }
+                    video: { facingMode: { ideal: "environment" } }
                 });
                 
                 video.srcObject = stream;
-                video.style.display = 'block';
+                video.style.display = "block";
                 
                 video.onloadedmetadata = () => {
                     video.play();
                     cameraAtiva = true;
-                    statusDiv.innerHTML = '📷 Câmera ativa! Procurando marcador 4x4...';
-                    statusDiv.style.background = '#222';
+                    statusDiv.innerHTML = '📷 Câmera ativa! Inicializando detector 4x4...';
                     
-                    // Inicia o detector se ainda não foi iniciado
-                    if (!detector) {
-                        iniciarDetector();
-                    }
-                    
-                    // Inicia o loop
-                    if (!animationId) {
-                        loopDetecao();
-                    }
+                    inicializarDetector().then(() => {
+                        statusDiv.innerHTML = '✅ Detector 4x4 pronto! Aponte o marcador.';
+                        if (!animationId) detectar();
+                    }).catch(err => {
+                        statusDiv.innerHTML = `❌ Erro: ${err}`;
+                    });
                 };
-                
-            } catch(erro) {
-                console.error('Erro câmera:', erro);
-                let msg = '';
-                if (erro.name === 'NotAllowedError') {
-                    msg = 'Permissão negada. Vá em Configurações e permita a câmera.';
-                } else if (erro.name === 'NotFoundError') {
-                    msg = 'Nenhuma câmera encontrada.';
-                } else {
-                    msg = erro.message;
-                }
-                statusDiv.innerHTML = `❌ Erro: ${msg}`;
-                statusDiv.style.background = '#8b0000';
+            } catch(err) {
+                statusDiv.innerHTML = `❌ Erro câmera: ${err.message}`;
             }
         }
         
-        // Inicia detector ao carregar
-        if (typeof AR !== 'undefined') {
-            iniciarDetector();
-        } else {
-            statusDiv.innerHTML = '❌ Aguardando biblioteca aruco.js... Verifique se o arquivo está na pasta.';
-        }
-        
-        // Botão
         btnCamera.addEventListener('click', ativarCamera);
         
-        // Limpeza
         window.addEventListener('beforeunload', () => {
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(t => t.stop());
-            }
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            if (animationId) cancelAnimationFrame(animationId);
         });
+        
+        // Verifica se a biblioteca carregou
+        setTimeout(() => {
+            if (typeof ARUCO === 'undefined' && typeof ArUco === 'undefined') {
+                statusDiv.innerHTML = '❌ Biblioteca não carregou. Verifique sua conexão.';
+            }
+        }, 2000);
     </script>
 </body>
 </html>
