@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArUco 4x4 - Versão Funcional</title>
-    <!-- Biblioteca CORRETA para ArUco 4x4 -->
-    <script src="https://cdn.jsdelivr.net/npm/aruco-js@0.3.0/aruco.js"></script>
+    <title>ArUco 4x4 - Funcional</title>
+    <!-- URL CORRETA da biblioteca aruco-js -->
+    <script src="https://raw.githubusercontent.com/okalachev/aruco-js/master/aruco.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -52,12 +52,13 @@
     <video id="video" autoplay playsinline muted style="display: none;"></video>
     <canvas id="canvas"></canvas>
     
-    <div class="status" id="status">⚠️ Clique no botão para ativar a câmera</div>
+    <div class="status" id="status">⏳ Carregando biblioteca...</div>
     
     <div class="info">
-        ✅ Agora usando biblioteca com suporte nativo a marcadores 4x4<br>
-        📌 Seu marcador ID 1 será detectado<br>
-        🟢 Contorno verde = sucesso
+        ✅ Usando biblioteca aruco-js com suporte nativo a 4x4 [citation:3]<br>
+        📌 Seu marcador 4x4 ID 1 será detectado<br>
+        🟢 Contorno verde = sucesso<br>
+        📐 4x4 significa 4x4 células internas (mais borda preta externa)
     </div>
 
     <script>
@@ -75,32 +76,46 @@
         let cameraAtiva = false;
         
         // Aguarda a biblioteca carregar
-        function inicializarDetector() {
+        function aguardarBiblioteca() {
             return new Promise((resolve, reject) => {
-                // Verifica se a biblioteca carregou
-                if (typeof ARUCO === 'undefined' && typeof ArUco === 'undefined') {
-                    reject('Biblioteca ArUco não carregou');
-                    return;
-                }
-                
-                try {
-                    // Cria o detector com suporte a 4x4
-                    // O aruco-js suporta DICT_4X4_50, DICT_4X4_100, DICT_4X4_250, DICT_4X4_1000
-                    const dict = new ARUCO.Dictionary(ARUCO.DICT_4X4_1000);
-                    detector = new ARUCO.Detector(dict);
-                    console.log('Detector 4x4 criado');
-                    resolve(true);
-                } catch(e) {
-                    console.error('Erro:', e);
-                    reject(e.message);
-                }
+                let tentativas = 0;
+                const intervalo = setInterval(() => {
+                    tentativas++;
+                    
+                    // Verifica se a biblioteca carregou (ARUCO global ou AR)
+                    if (typeof ARUCO !== 'undefined' || typeof ArUco !== 'undefined') {
+                        clearInterval(intervalo);
+                        console.log('Biblioteca carregada!');
+                        resolve(true);
+                    } else if (tentativas > 50) { // 10 segundos
+                        clearInterval(intervalo);
+                        reject('Timeout: biblioteca não carregou');
+                    }
+                }, 200);
             });
+        }
+        
+        // Inicializa o detector com dicionário 4x4_1000 [citation:3]
+        function inicializarDetector() {
+            try {
+                // aruco-js usa ARUCO global
+                const dict = new ARUCO.Dictionary(ARUCO.DICT_4X4_1000);
+                detector = new ARUCO.Detector(dict);
+                console.log('Detector 4x4 criado com sucesso');
+                return true;
+            } catch(e) {
+                console.error('Erro ao criar detector:', e);
+                statusDiv.innerHTML = `❌ Erro: ${e.message}`;
+                return false;
+            }
         }
         
         // Loop de detecção
         function detectar() {
             if (!cameraAtiva || !video.videoWidth || !detector) {
-                animationId = requestAnimationFrame(detectar);
+                if (cameraAtiva) {
+                    animationId = requestAnimationFrame(detectar);
+                }
                 return;
             }
             
@@ -108,15 +123,12 @@
             
             try {
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // Detecta marcadores
                 const markers = detector.detect(imageData);
                 
                 if (markers && markers.length > 0) {
-                    statusDiv.innerHTML = `✅✅✅ MARCADOR 4x4 DETECTADO! ID: ${markers[0].id} ✅✅✅`;
+                    statusDiv.innerHTML = `✅✅✅ MARCADOR DETECTADO! ID: ${markers[0].id} ✅✅✅`;
                     statusDiv.className = 'status detected';
                     
-                    // Desenha contorno verde
                     const corners = markers[0].corners;
                     ctx.strokeStyle = '#00ff00';
                     ctx.lineWidth = 4;
@@ -148,7 +160,7 @@
                 video.srcObject.getTracks().forEach(t => t.stop());
             }
             
-            statusDiv.innerHTML = '📷 Solicitando permissão...';
+            statusDiv.innerHTML = '📷 Solicitando permissão da câmera...';
             
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -161,19 +173,26 @@
                 video.onloadedmetadata = () => {
                     video.play();
                     cameraAtiva = true;
-                    statusDiv.innerHTML = '📷 Câmera ativa! Inicializando detector 4x4...';
+                    statusDiv.innerHTML = '📷 Câmera ativa! Aguardando detecção...';
                     
-                    inicializarDetector().then(() => {
-                        statusDiv.innerHTML = '✅ Detector 4x4 pronto! Aponte o marcador.';
-                        if (!animationId) detectar();
-                    }).catch(err => {
-                        statusDiv.innerHTML = `❌ Erro: ${err}`;
-                    });
+                    if (!animationId) detectar();
                 };
             } catch(err) {
-                statusDiv.innerHTML = `❌ Erro câmera: ${err.message}`;
+                console.error('Erro câmera:', err);
+                let msg = err.name === 'NotAllowedError' ? 
+                    'Permissão negada. Vá em Configurações e permita a câmera.' : 
+                    err.message;
+                statusDiv.innerHTML = `❌ ${msg}`;
             }
         }
+        
+        // INÍCIO: carrega biblioteca e inicializa
+        aguardarBiblioteca().then(() => {
+            statusDiv.innerHTML = '✅ Biblioteca carregada! Clique em ATIVAR CÂMERA';
+            inicializarDetector();
+        }).catch((err) => {
+            statusDiv.innerHTML = `❌ Biblioteca não carregou. ${err}<br><br>💡 Solução: Baixe o arquivo aruco.js manualmente do GitHub e coloque na mesma pasta.`;
+        });
         
         btnCamera.addEventListener('click', ativarCamera);
         
@@ -181,13 +200,6 @@
             if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
             if (animationId) cancelAnimationFrame(animationId);
         });
-        
-        // Verifica se a biblioteca carregou
-        setTimeout(() => {
-            if (typeof ARUCO === 'undefined' && typeof ArUco === 'undefined') {
-                statusDiv.innerHTML = '❌ Biblioteca não carregou. Verifique sua conexão.';
-            }
-        }, 2000);
     </script>
 </body>
 </html>
