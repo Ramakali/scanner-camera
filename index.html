@@ -61,8 +61,7 @@
     
     <div class="info">
         <strong>✅ Extraído diretamente do DICT_4X4_1000_BYTES do seu arquivo</strong><br>
-        • IDs suportados: 0 a 999<br>
-        • Seu marcador ID 1 será detectado<br>
+        • Seu marcador ID 1 → bytes [15, 154] → código 0x9A0F<br>
         • Nenhum código inventado - todos vêm do seu arquivo
     </div>
 
@@ -70,136 +69,66 @@
         // ==========================================
         // DADOS EXTRAÍDOS DO SEU ARQUIVO Predefined_dictionary.hpp
         // DICT_4X4_1000_BYTES - primeiros 50 marcadores
-        // Cada marcador tem 4 rotações, cada rotação com 2 bytes
         // ==========================================
         
         // Bytes do seu arquivo para os primeiros marcadores 4x4
-        // Formato: [marcador][rotação][bytes]
-        const DICT_4X4_1000_BYTES = [
-            // ID 0
-            { bytes: [181, 50], rot1: [235, 72], rot2: [76, 173], rot3: [18, 215] },
-            // ID 1
-            { bytes: [15, 154], rot1: [101, 71], rot2: [89, 240], rot3: [226, 166] },
-            // ID 2
-            { bytes: [51, 45], rot1: [222, 17], rot2: [180, 204], rot3: [136, 123] },
-            // ID 3
-            { bytes: [153, 70], rot1: [193, 60], rot2: [98, 153], rot3: [60, 131] },
-            // ID 4
-            { bytes: [84, 158], rot1: [161, 211], rot2: [121, 42], rot3: [203, 133] },
-            // ID 5
-            { bytes: [121, 205], rot1: [216, 183], rot2: [179, 158], rot3: [237, 27] },
-            // ID 6
-            { bytes: [158, 46], rot1: [135, 93], rot2: [116, 121], rot3: [186, 225] },
-            // ID 7
-            { bytes: [196, 242], rot1: [35, 234], rot2: [79, 35], rot3: [87, 196] },
-            // ID 8
-            { bytes: [254, 218], rot1: [173, 239], rot2: [91, 127], rot3: [247, 181] },
-            // ID 9
-            { bytes: [207, 86], rot1: [101, 252], rot2: [106, 243], rot3: [63, 166] },
-            // ID 10
-            { bytes: [249, 145], rot1: [248, 142], rot2: [137, 159], rot3: [113, 31] },
-            // ID 11
-            { bytes: [17, 167], rot1: [211, 18], rot2: [229, 136], rot3: [72, 203] },
-            // ID 12
-            { bytes: [14, 183], rot1: [55, 86], rot2: [237, 112], rot3: [106, 236] },
-            // ID 13
-            { bytes: [42, 15], rot1: [29, 21], rot2: [240, 84], rot3: [168, 184] },
-            // ID 14
-            { bytes: [36, 177], rot1: [58, 66], rot2: [141, 36], rot3: [66, 92] },
-            // ID 15
-            { bytes: [38, 62], rot1: [47, 81], rot2: [124, 100], rot3: [138, 244] },
-            // ID 16
-            { bytes: [70, 101], rot1: [22, 240], rot2: [166, 98], rot3: [15, 104] },
-            // ID 17
-            { bytes: [102, 0], rot1: [12, 192], rot2: [0, 102], rot3: [3, 48] },
-            // ID 18
-            { bytes: [108, 94], rot1: [41, 245], rot2: [122, 54], rot3: [175, 148] },
-            // ID 19
-            { bytes: [118, 175], rot1: [159, 211], rot2: [245, 110], rot3: [203, 249] },
-            // ID 20
-            { bytes: [134, 139], rot1: [21, 75], rot2: [209, 97], rot3: [210, 168] },
-            // ID 21
-            { bytes: [176, 43], rot1: [155, 9], rot2: [212, 13], rot3: [144, 217] },
-            // ID 22
-            { bytes: [204, 213], rot1: [48, 254], rot2: [171, 51], rot3: [127, 12] },
-            // ID 23
-            { bytes: [221, 130], rot1: [193, 206], rot2: [65, 187], rot3: [115, 131] },
-            // ID 24
-            { bytes: [254, 71], rot1: [157, 252], rot2: [226, 127], rot3: [63, 185] },
-            // ID 25
-            { bytes: [148, 113], rot1: [178, 104], rot2: [142, 41], rot3: [22, 77] },
-            // ID 26
-            { bytes: [172, 228], rot1: [10, 126], rot2: [39, 53], rot3: [126, 80] },
-            // ID 27
-            { bytes: [165, 84], rot1: [104, 120], rot2: [42, 165], rot3: [30, 22] },
-            // ID 28
-            { bytes: [33, 35], rot1: [91, 0], rot2: [196, 132], rot3: [0, 218] },
-            // ID 29
-            { bytes: [52, 111], rot1: [155, 113], rot2: [246, 44], rot3: [142, 217] },
-            // ID 30
-            { bytes: [68, 21], rot1: [48, 208], rot2: [168, 34], rot3: [11, 12] },
-            // ID 31
-            { bytes: [87, 178], rot1: [231, 194], rot2: [77, 234], rot3: [67, 231] },
-            // ID 32
-            { bytes: [158, 207], rot1: [149, 127], rot2: [243, 121], rot3: [254, 169] },
-            // ID 33
-            { bytes: [240, 203], rot1: [153, 171], rot2: [211, 15], rot3: [213, 153] },
-            // ID 34
-            { bytes: [8, 174], rot1: [3, 23], rot2: [117, 16], rot3: [232, 192] },
-            // ID 35
-            { bytes: [9, 41], rot1: [82, 5], rot2: [148, 144], rot3: [160, 74] },
-            // ID 36
-            { bytes: [24, 117], rot1: [178, 52], rot2: [174, 24], rot3: [44, 77] },
-            // ID 37
-            { bytes: [4, 255], rot1: [51, 115], rot2: [255, 32], rot3: [206, 204] },
-            // ID 38
-            { bytes: [13, 246], rot1: [99, 118], rot2: [111, 176], rot3: [110, 198] },
-            // ID 39
-            { bytes: [28, 90], rot1: [161, 101], rot2: [90, 56], rot3: [166, 133] },
-            // ID 40
-            { bytes: [23, 24], rot1: [228, 65], rot2: [24, 232], rot3: [130, 39] },
-            // ID 41
-            { bytes: [42, 40], rot1: [14, 5], rot2: [20, 84], rot3: [160, 112] },
-            // ID 42
-            { bytes: [50, 140], rot1: [140, 19], rot2: [49, 76], rot3: [200, 49] },
-            // ID 43
-            { bytes: [56, 178], rot1: [171, 6], rot2: [77, 28], rot3: [96, 213] },
-            // ID 44
-            { bytes: [36, 232], rot1: [10, 99], rot2: [23, 36], rot3: [198, 80] },
-            // ID 45
-            { bytes: [46, 235], rot1: [31, 103], rot2: [215, 116], rot3: [230, 248] },
-            // ID 46
-            { bytes: [45, 63], rot1: [123, 85], rot2: [252, 180], rot3: [170, 222] },
-            // ID 47
-            { bytes: [75, 100], rot1: [70, 180], rot2: [38, 210], rot3: [45, 98] },
-            // ID 48
-            { bytes: [80, 46], rot1: [131, 145], rot2: [116, 10], rot3: [137, 193] },
-            // ID 49
-            { bytes: [80, 19], rot1: [177, 128], rot2: [200, 10], rot3: [1, 141] }
+        // Cada marcador tem 4 rotações, cada rotação com 2 bytes
+        // Usamos a primeira rotação (0 graus)
+        
+        // Lista de códigos (16 bits cada) extraídos do seu arquivo
+        // Os bytes são little-endian: byte1 é o menos significativo
+        const CODIGOS_DO_SEU_ARQUIVO = [
+            0x32B5,  // ID 0: bytes [181, 50] = 0x32B5
+            0x9A0F,  // ID 1: bytes [15, 154] = 0x9A0F  <--- SEU MARCADOR!
+            0x2D33,  // ID 2: bytes [51, 45] = 0x2D33
+            0x4699,  // ID 3: bytes [153, 70] = 0x4699
+            0x9E54,  // ID 4: bytes [84, 158] = 0x9E54
+            0xCD79,  // ID 5: bytes [121, 205] = 0xCD79
+            0x2E9E,  // ID 6: bytes [158, 46] = 0x2E9E
+            0xF2C4,  // ID 7: bytes [196, 242] = 0xF2C4
+            0xDAFE,  // ID 8: bytes [254, 218] = 0xDAFE
+            0x56CF,  // ID 9: bytes [207, 86] = 0x56CF
+            0x91F9,  // ID 10: bytes [249, 145] = 0x91F9
+            0xA711,  // ID 11: bytes [17, 167] = 0xA711
+            0xB70E,  // ID 12: bytes [14, 183] = 0xB70E
+            0x0F2A,  // ID 13: bytes [42, 15] = 0x0F2A
+            0xB124,  // ID 14: bytes [36, 177] = 0xB124
+            0x3E26,  // ID 15: bytes [38, 62] = 0x3E26
+            0x6546,  // ID 16: bytes [70, 101] = 0x6546
+            0x0066,  // ID 17: bytes [102, 0] = 0x0066
+            0x5E6C,  // ID 18: bytes [108, 94] = 0x5E6C
+            0xAF76,  // ID 19: bytes [118, 175] = 0xAF76
+            0x8B86,  // ID 20: bytes [134, 139] = 0x8B86
+            0x2BB0,  // ID 21: bytes [176, 43] = 0x2BB0
+            0xD5CC,  // ID 22: bytes [204, 213] = 0xD5CC
+            0x82DD,  // ID 23: bytes [221, 130] = 0x82DD
+            0x47FE,  // ID 24: bytes [254, 71] = 0x47FE
+            0x7194,  // ID 25: bytes [148, 113] = 0x7194
+            0xE4AC,  // ID 26: bytes [172, 228] = 0xE4AC
+            0x54A5,  // ID 27: bytes [165, 84] = 0x54A5
+            0x2321,  // ID 28: bytes [33, 35] = 0x2321
+            0x6F34,  // ID 29: bytes [52, 111] = 0x6F34
+            0x1544,  // ID 30: bytes [68, 21] = 0x1544
+            0xB257,  // ID 31: bytes [87, 178] = 0xB257
+            0xCF9E,  // ID 32: bytes [158, 207] = 0xCF9E
+            0xCBF0,  // ID 33: bytes [240, 203] = 0xCBF0
+            0xAE08,  // ID 34: bytes [8, 174] = 0xAE08
+            0x2909,  // ID 35: bytes [9, 41] = 0x2909
+            0x7518,  // ID 36: bytes [24, 117] = 0x7518
+            0xFF04,  // ID 37: bytes [4, 255] = 0xFF04
+            0xF60D,  // ID 38: bytes [13, 246] = 0xF60D
+            0x5A1C,  // ID 39: bytes [28, 90] = 0x5A1C
+            0x1817,  // ID 40: bytes [23, 24] = 0x1817
+            0x282A,  // ID 41: bytes [42, 40] = 0x282A
+            0x8C32,  // ID 42: bytes [50, 140] = 0x8C32
+            0xB238,  // ID 43: bytes [56, 178] = 0xB238
+            0xE824,  // ID 44: bytes [36, 232] = 0xE824
+            0xEB2E,  // ID 45: bytes [46, 235] = 0xEB2E
+            0x3F2D,  // ID 46: bytes [45, 63] = 0x3F2D
+            0x644B,  // ID 47: bytes [75, 100] = 0x644B
+            0x2E50,  // ID 48: bytes [80, 46] = 0x2E50
+            0x1350   // ID 49: bytes [80, 19] = 0x1350
         ];
-        
-        // Converte os bytes (little-endian) para um número inteiro de 16 bits
-        function bytesToCode(byte1, byte2) {
-            // O formato no OpenCV é little-endian: byte1 é o byte menos significativo
-            return (byte2 << 8) | byte1;
-        }
-        
-        // Gera a lista de códigos para o dicionário 4x4
-        function gerarCodeList4x4() {
-            const codes = [];
-            
-            for (let i = 0; i < DICT_4X4_1000_BYTES.length; i++) {
-                const marcador = DICT_4X4_1000_BYTES[i];
-                // Usa a primeira rotação (0 graus)
-                const code = bytesToCode(marcador.bytes[0], marcador.bytes[1]);
-                codes.push(code);
-            }
-            
-            // Para IDs acima de 49 (se necessário), usa os bytes do arquivo
-            // (mas seu ID 1 está nos primeiros)
-            
-            return codes;
-        }
         
         // Adiciona o dicionário à biblioteca
         function adicionarDicionario() {
@@ -208,18 +137,18 @@
                 return false;
             }
             
-            const codes = gerarCodeList4x4();
+            // Formata os códigos no formato que a biblioteca espera
+            const codeList = CODIGOS_DO_SEU_ARQUIVO.map(code => '0x' + code.toString(16).toUpperCase().padStart(8, '0') + 'UL');
             
             AR.DICTIONARIES.DICT_4X4_FROM_YOUR_FILE = {
                 nBits: 16,
                 tau: 1,
-                codeList: codes.map(c => '0x' + c.toString(16).toUpperCase().padStart(8, '0') + 'UL')
+                codeList: codeList
             };
             
-            console.log('Dicionário 4x4 extraído do seu arquivo!');
-            console.log('Código do ID 0:', codes[0].toString(16));
-            console.log('Código do ID 1:', codes[1].toString(16));
-            console.log('Código do ID 2:', codes[2].toString(16));
+            console.log('✅ Dicionário 4x4 extraído do seu arquivo!');
+            console.log('Código do ID 0:', CODIGOS_DO_SEU_ARQUIVO[0].toString(16));
+            console.log('Código do ID 1 (SEU MARCADOR):', CODIGOS_DO_SEU_ARQUIVO[1].toString(16));
             
             return true;
         }
@@ -243,7 +172,7 @@
         
         function inicializarDetector() {
             if (typeof AR === 'undefined') {
-                statusDiv.innerHTML = '❌ Aguardando biblioteca...';
+                statusDiv.innerHTML = '❌ Aguardando biblioteca aruco.js...';
                 setTimeout(inicializarDetector, 500);
                 return false;
             }
@@ -293,7 +222,7 @@
                     ctx.font = 'bold 22px system-ui';
                     ctx.fillText(`ID: ${markers[0].id}`, corners[0].x, corners[0].y - 10);
                 } else {
-                    statusDiv.innerHTML = '🔍 Procurando marcador 4x4 ID 1... (usando dados do seu arquivo)';
+                    statusDiv.innerHTML = '🔍 Procurando marcador 4x4 ID 1... (código 0x9A0F do seu arquivo)';
                     statusDiv.className = 'status';
                 }
             } catch(e) {
